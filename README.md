@@ -71,9 +71,13 @@ aws s3 sync s3://$OUTPUT_BUCKET/results/ ./results/
 ## Components
 
 ### S3 Buckets (`modules/s3`)
-- **Input**: Drop `.py` or `.ipynb` files here
-- **Output**: Results auto-saved here
-- **Models** (optional): Versioned model storage
+- **Input**: Scripts (`.py`, `.ipynb`) AND training data (CSV, parquet, etc.)
+  - `jobs/` - Python scripts (auto-trigger jobs)
+  - `notebooks/` - Jupyter notebooks (auto-trigger jobs)
+  - `data/` - Training datasets, test data
+  - `models/` - Pre-trained models, checkpoints
+- **Output**: Job results, predictions, trained models
+- **Models** (optional): Long-term versioned model storage
 
 ### AWS Batch (`modules/batch`)
 - **Compute**: GPU instances (g4dn.xlarge, g5.xlarge, p3.2xlarge)
@@ -127,6 +131,13 @@ ml_job_gpus   = 1
 ml_job_timeout = 3600  # seconds
 ```
 
+**Lambda Trigger** (important!):
+```hcl
+# Controls which S3 uploads trigger jobs
+ml_trigger_prefix = ""        # ALL uploads trigger jobs (including data/)
+# ml_trigger_prefix = "jobs/"  # Only uploads to jobs/ folder trigger jobs (recommended)
+```
+
 **Containers**:
 ```hcl
 ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-python:latest"
@@ -137,24 +148,72 @@ notebook_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-note
 
 ## Example Workflows
 
+### Working with Input Data
+
+**Environment variables** (automatically configured in batch jobs):
+- `ML_INPUT_BUCKET` - Input S3 bucket name
+- `ML_OUTPUT_BUCKET` - Output S3 bucket name  
+- `AWS_DEFAULT_REGION` - AWS region
+
+**Upload training data to S3**:
+```bash
+INPUT_BUCKET=$(terraform output -raw ml_input_bucket)
+
+# Upload CSV datasets
+aws s3 cp train.csv s3://$INPUT_BUCKET/data/
+aws s3 cp test.csv s3://$INPUT_BUCKET/data/
+aws s3 sync ./datasets/ s3://$INPUT_BUCKET/data/  # Upload entire folder
+
+# Upload pre-trained models or checkpoints
+aws s3 cp pretrained_model.pth s3://$INPUT_BUCKET/models/
+```
+
+**Access data in your script**:
+```python
+import boto3
+import os
+
+s3 = boto3.client('s3')
+input_bucket = os.environ['ML_INPUT_BUCKET']
+output_bucket = os.environ['ML_OUTPUT_BUCKET']
+
+# Download input data
+s3.download_file(input_bucket, 'data/dataset.csv', '/tmp/data.csv')
+s3.download_file(input_bucket, 'models/pretrained.pth', '/tmp/model.pth')
+
+# Process data
+# ... your ML code ...
+
+# Upload results
+s3.upload_file('/tmp/predictions.csv', output_bucket, 'results/predictions.csv')
+```
+
 ### Training Script
 
 Create `train.py`:
 ```python
 import tensorflow as tf
 import boto3
+import os
 
 # GPU check
 print(f"GPUs: {len(tf.config.list_physical_devices('GPU'))}")
 
-# Your ML code
+# Load training data from S3
+s3 = boto3.client('s3')
+input_bucket = os.environ['ML_INPUT_BUCKET']
+output_bucket = os.environ['ML_OUTPUT_BUCKET']
+
+s3.download_file(input_bucket, 'data/train.csv', '/tmp/train.csv')
+# Load your data...
+
+# Train model
 model = tf.keras.Sequential([...])
 model.fit(X_train, y_train)
 
 # Save to S3
-s3 = boto3.client('s3')
 model.save('/tmp/model')
-s3.upload_file('/tmp/model', 'OUTPUT_BUCKET', 'models/trained.h5')
+s3.upload_file('/tmp/model', output_bucket, 'models/trained.h5')
 ```
 
 Upload:
@@ -167,16 +226,31 @@ aws s3 cp train.py s3://$INPUT_BUCKET/jobs/
 Create `inference.ipynb` with Papermill parameters:
 ```python
 # Cell 1 (tagged as "parameters")
-input_file = "data.csv"
-output_path = "predictions.csv"
+input_data_key = "data/test.csv"
+model_key = "models/trained.pth"
+output_key = "results/predictions.csv"
 
 # Cell 2
 import torch
-model = torch.load('model.pth')
+import boto3
+import os
+
+s3 = boto3.client('s3')
+input_bucket = os.environ['ML_INPUT_BUCKET']
+output_bucket = os.environ['ML_OUTPUT_BUCKET']
+
+# Download model and data
+s3.download_file(input_bucket, model_key, '/tmp/model.pth')
+s3.download_file(input_bucket, input_data_key, '/tmp/data.csv')
+
+# Run inference
+model = torch.load('/tmp/model.pth')
 predictions = model.predict(data)
 
 # Cell 3
-s3.upload_file(output_path, OUTPUT_BUCKET, 'results/')
+# Upload results
+predictions.to_csv('/tmp/predictions.csv')
+s3.upload_file('/tmp/predictions.csv', output_bucket, output_key)
 ```
 
 Upload:
