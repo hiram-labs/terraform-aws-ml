@@ -1,0 +1,327 @@
+# GPU-Accelerated ML Pipeline
+
+Production-grade AWS infrastructure for running ML scripts and Jupyter notebooks on GPU instances with automatic S3 integration.
+
+## Overview
+
+Drop Python scripts or Jupyter notebooks into S3 → automatically run on GPU → results saved back to S3.
+
+**Architecture**:
+```
+S3 Input → Lambda Trigger → AWS Batch (GPU) → S3 Output
+                              ↓
+                         CloudWatch Logs
+                              ↓
+                         SNS Notifications
+```
+
+**Features**:
+- GPU instances (g4dn, g5, p3 families)
+- Auto-scaling compute environment (0-256 vCPUs)
+- Spot instances for cost savings (up to 70%)
+- Pre-built containers (TensorFlow, PyTorch, CUDA 12.2)
+- Automated notebook execution via Papermill
+- EventBridge monitoring with SNS alerts
+
+---
+
+## Quick Start
+
+### 1. Deploy Infrastructure
+
+```bash
+cp terraform.tfvars.example terraform.tfvars
+nano terraform.tfvars  # Configure variables
+terraform init
+terraform apply
+```
+
+**Deployment Modes**:
+
+**Standalone** (default):
+```hcl
+use_existing_vpc = false
+vpc_id = "vpc-xxxxx"
+private_subnets = ["subnet-a", "subnet-b"]
+```
+
+**Integrated** (with core infra):
+```hcl
+use_existing_vpc = true
+core_project_name = "my-app"  # Uses VPC/SNS from core
+```
+
+### 2. Build Docker Images
+
+```bash
+cd modules/batch/docker
+./build-and-push.sh us-east-1 123456789012 my-project
+
+# Update terraform.tfvars with ECR URIs
+ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-project-ml-python:latest"
+notebook_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-project-ml-notebook:latest
+terraform apply
+```
+
+### 3. Run ML Workload
+
+**Python Script**:
+```bash
+INPUT_BUCKET=$(terraform output -raw ml_input_bucket)
+aws s3 cp examples/training-script.py s3://$INPUT_BUCKET/jobs/
+# Job auto-triggers!
+```
+
+**Jupyter Notebook**:
+```bash
+aws s3 cp examples/inference.ipynb s3://$INPUT_BUCKET/notebooks/
+```
+
+### 4. Monitor & Retrieve Results
+
+```bash
+# Watch logs
+aws logs tail /aws/batch/ml-jobs --follow
+
+# Get results
+OUTPUT_BUCKET=$(terraform output -raw ml_output_bucket)
+aws s3 sync s3://$OUTPUT_BUCKET/results/ ./results/
+```
+
+---
+
+## Components
+
+### S3 Buckets (`modules/s3`)
+- **Input**: Drop `.py` or `.ipynb` files here
+- **Output**: Results auto-saved here
+- **Models** (optional): Versioned model storage
+
+### AWS Batch (`modules/batch`)
+- **Compute**: GPU instances (g4dn.xlarge, g5.xlarge, p3.2xlarge)
+- **Scaling**: 0-256 vCPUs, auto-scales based on jobs
+- **Cost**: Spot instances enabled (70% savings)
+- **Containers**: TensorFlow, PyTorch, scikit-learn, XGBoost, CUDA 12.2
+
+### Lambda Functions (`modules/lambda`)
+- **Trigger**: S3 upload → Batch job submission
+- **Monitor**: Job status tracking → SNS notifications
+- **Events**: EventBridge integration for job state changes
+
+### Docker Images (`modules/batch/docker`)
+- **ml-python**: Python ML stack with GPU support
+- **ml-notebook**: Papermill for automated notebook execution
+
+**Build Script**:
+```bash
+cd modules/batch/docker
+./build-and-push.sh <region> <account-id> <project>
+```
+
+---
+
+## Configuration
+
+### Key Variables
+
+**Infrastructure**:
+```hcl
+project_name = "ml-pipeline"
+aws_region   = "us-east-1"
+
+# Standalone mode
+use_existing_vpc = false
+vpc_id = "vpc-xxxxx"
+private_subnets = ["subnet-a", "subnet-b"]
+
+# Or integrated mode
+use_existing_vpc = true
+core_project_name = "my-app"
+```
+
+**GPU Instances**:
+```hcl
+ml_gpu_instance_types = ["g4dn.xlarge", "g5.xlarge"]
+ml_max_vcpus = 256
+ml_enable_spot_instances = true
+```
+
+**Job Resources**:
+```hcl
+ml_job_vcpus  = 4
+ml_job_memory = 16384  # MB
+ml_job_gpus   = 1
+ml_job_timeout = 3600  # seconds
+```
+
+**Containers**:
+```hcl
+ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-python:latest"
+notebook_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-notebook:latest"
+```
+
+---
+
+## Example Workflows
+
+### Training Script
+
+Create `train.py`:
+```python
+import tensorflow as tf
+import boto3
+
+# GPU check
+print(f"GPUs: {len(tf.config.list_physical_devices('GPU'))}")
+
+# Your ML code
+model = tf.keras.Sequential([...])
+model.fit(X_train, y_train)
+
+# Save to S3
+s3 = boto3.client('s3')
+model.save('/tmp/model')
+s3.upload_file('/tmp/model', 'OUTPUT_BUCKET', 'models/trained.h5')
+```
+
+Upload:
+```bash
+aws s3 cp train.py s3://$INPUT_BUCKET/jobs/
+```
+
+### Inference Notebook
+
+Create `inference.ipynb` with Papermill parameters:
+```python
+# Cell 1 (tagged as "parameters")
+input_file = "data.csv"
+output_path = "predictions.csv"
+
+# Cell 2
+import torch
+model = torch.load('model.pth')
+predictions = model.predict(data)
+
+# Cell 3
+s3.upload_file(output_path, OUTPUT_BUCKET, 'results/')
+```
+
+Upload:
+```bash
+aws s3 cp inference.ipynb s3://$INPUT_BUCKET/notebooks/
+```
+
+---
+
+## Monitoring
+
+### CloudWatch Logs
+```bash
+# Batch job logs
+aws logs tail /aws/batch/ml-jobs --follow
+
+# Lambda trigger logs
+aws logs tail /aws/lambda/ml-batch-trigger --follow
+
+# Monitor function logs
+aws logs tail /aws/lambda/ml-batch-monitor --follow
+```
+
+### Job Status
+```bash
+# List running jobs
+aws batch list-jobs --job-queue ml-job-queue --job-status RUNNING
+
+# Describe specific job
+aws batch describe-jobs --jobs <job-id>
+```
+
+### Metrics
+- **CloudWatch Dashboard**: Auto-created with job metrics
+- **SNS Alerts**: Success/failure notifications
+- **EventBridge**: Job state change events
+
+---
+
+## Cost Optimization
+
+**Development** (~$45/month):
+- Idle: $0/hour (scales to zero)
+- 10 jobs/day, 1 hour each
+- g4dn.xlarge spot: ~$0.15/hour
+- S3 storage: minimal
+
+**Production** (scales with usage):
+- Enable spot instances (70% savings)
+- Use lifecycle policies on S3
+- Set job timeouts appropriately
+- Monitor with budget alerts
+
+**Cost Controls**:
+```hcl
+ml_enable_spot_instances = true    # 70% cheaper
+ml_max_vcpus = 256                  # Cap max scale
+ml_job_timeout = 3600               # 1 hour limit
+```
+
+---
+
+## Troubleshooting
+
+### Jobs Not Triggering
+```bash
+# Check Lambda permissions
+aws lambda get-policy --function-name ml-batch-trigger
+
+# Verify S3 event notifications
+aws s3api get-bucket-notification-configuration --bucket $INPUT_BUCKET
+```
+
+### GPU Not Detected
+```bash
+# Check nvidia-smi in logs
+aws logs filter-log-events \
+  --log-group-name /aws/batch/ml-jobs \
+  --filter-pattern "nvidia-smi"
+```
+
+### Out of Memory
+```hcl
+# Increase job memory
+ml_job_memory = 32768  # 32GB
+```
+
+### Jobs Timing Out
+```hcl
+# Increase timeout
+ml_job_timeout = 7200  # 2 hours
+```
+
+---
+
+## Outputs
+
+After deployment:
+```bash
+terraform output
+```
+
+**Available outputs**:
+- `ml_input_bucket` - Upload scripts/notebooks here
+- `ml_output_bucket` - Results saved here
+- `ml_models_bucket` - Model storage
+- `batch_compute_environment` - Compute env ARN
+- `batch_job_queue` - Job queue ARN
+- `sns_topic_arn` - Notification topic
+
+## Cleanup
+
+```bash
+# Remove all ML pipeline resources
+terraform destroy -target=module.ml_s3 \
+                  -target=module.batch \
+                  -target=module.lambda
+
+# Or destroy everything
+terraform destroy
+```
