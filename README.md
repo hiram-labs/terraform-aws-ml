@@ -31,24 +31,9 @@ S3 Input → Lambda Trigger → AWS Batch (GPU) → S3 Output
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-nano terraform.tfvars  # Configure variables
+nano terraform.tfvars  # Configure: VPC mode, GPU instances, container URIs (see Configuration)
 terraform init
 terraform apply
-```
-
-**Deployment Modes**:
-
-**Standalone** (default):
-```hcl
-use_existing_vpc = false
-vpc_id = "vpc-xxxxx"
-private_subnets = ["subnet-a", "subnet-b"]
-```
-
-**Integrated** (with core infra):
-```hcl
-use_existing_vpc = true
-core_project_name = "my-app"  # Uses VPC/SNS from core
 ```
 
 ### 2. Build Docker Images
@@ -56,11 +41,7 @@ core_project_name = "my-app"  # Uses VPC/SNS from core
 ```bash
 cd modules/batch/docker
 ./build-and-push.sh us-east-1 123456789012 my-project
-
-# Update terraform.tfvars with ECR URIs
-ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-project-ml-python:latest"
-notebook_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/my-project-ml-notebook:latest
-terraform apply
+# Update terraform.tfvars with output ECR URIs, then: terraform apply
 ```
 
 ### 3. Run ML Workload
@@ -77,15 +58,12 @@ aws s3 cp examples/training-script.py s3://$INPUT_BUCKET/jobs/
 aws s3 cp examples/inference.ipynb s3://$INPUT_BUCKET/notebooks/
 ```
 
-### 4. Monitor & Retrieve Results
+### 4. Retrieve Results
 
 ```bash
-# Watch logs
-aws logs tail /aws/batch/ml-jobs --follow
-
-# Get results
 OUTPUT_BUCKET=$(terraform output -raw ml_output_bucket)
 aws s3 sync s3://$OUTPUT_BUCKET/results/ ./results/
+# For monitoring, see Monitoring section below
 ```
 
 ---
@@ -109,14 +87,9 @@ aws s3 sync s3://$OUTPUT_BUCKET/results/ ./results/
 - **Events**: EventBridge integration for job state changes
 
 ### Docker Images (`modules/batch/docker`)
-- **ml-python**: Python ML stack with GPU support
+- **ml-python**: Python ML stack with GPU support (TensorFlow, PyTorch, CUDA 12.2)
 - **ml-notebook**: Papermill for automated notebook execution
-
-**Build Script**:
-```bash
-cd modules/batch/docker
-./build-and-push.sh <region> <account-id> <project>
-```
+- Build: `./build-and-push.sh <region> <account-id> <project>` (from docker/ directory)
 
 ---
 
@@ -134,13 +107,13 @@ use_existing_vpc = false
 vpc_id = "vpc-xxxxx"
 private_subnets = ["subnet-a", "subnet-b"]
 
-# Or integrated mode
-use_existing_vpc = true
-core_project_name = "my-app"
-```
+# Or integrated m (default)
+use_existing_vpc = false
+vpc_id           = "vpc-xxxxx"
+private_subnets  = ["subnet-a", "subnet-b"]
 
-**GPU Instances**:
-```hcl
+# Integrated mode (uses existing VPC/SNS from core project)
+use_existing_vpc 
 ml_gpu_instance_types = ["g4dn.xlarge", "g5.xlarge"]
 ml_max_vcpus = 256
 ml_enable_spot_instances = true
@@ -250,24 +223,18 @@ aws batch describe-jobs --jobs <job-id>
 - 10 jobs/day, 1 hour each
 - g4dn.xlarge spot: ~$0.15/hour
 - S3 storage: minimal
-
-**Production** (scales with usage):
-- Enable spot instances (70% savings)
-- Use lifecycle policies on S3
-- Set job timeouts appropriately
-- Monitor with budget alerts
+Estimated Costs**:
+- Development: ~$45/month (10 jobs/day × 1hr × $0.15/hr spot + S3)
+- Idle: $0/hour (auto-scales to zero)
+- Production: Scales with usage
 
 **Cost Controls**:
 ```hcl
-ml_enable_spot_instances = true    # 70% cheaper
-ml_max_vcpus = 256                  # Cap max scale
-ml_job_timeout = 3600               # 1 hour limit
+ml_enable_spot_instances = true    # 70% savings vs on-demand
+ml_max_vcpus = 256                  # Cap maximum scale
+ml_job_timeout = 3600               # Prevent runaway jobs (1 hour)
 ```
-
----
-
-## Troubleshooting
-
+Enable S3 lifecycle policies and CloudWatch budget alerts for production.
 ### Jobs Not Triggering
 ```bash
 # Check Lambda permissions
@@ -325,3 +292,4 @@ terraform destroy -target=module.ml_s3 \
 # Or destroy everything
 terraform destroy
 ```
+terraform destroy  # Removes all resources
