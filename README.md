@@ -359,7 +359,7 @@ terraform output
 
 ```bash
 # Remove all ML pipeline resources
-terraform destroy -target=module.ml_s3 \
+terraform destroy -target=module.s3 \
                   -target=module.batch \
                   -target=module.lambda
 
