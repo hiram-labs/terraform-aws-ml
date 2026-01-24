@@ -58,7 +58,7 @@ enable_ml_models_bucket = true
 # Monitoring & Notifications                                   #
 ###############################################################
 
-ml_trigger_prefix         = ""
+ml_trigger_prefix         = "jobs/"
 enable_ml_notifications   = true
 enable_ml_job_monitoring  = true
 log_retention_days        = 7
