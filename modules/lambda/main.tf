@@ -119,10 +119,10 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
 # Lambda Function - Batch Job Trigger                         #
 ###############################################################
 resource "aws_lambda_function" "batch_job_trigger" {
-  filename         = "${path.module}/functions/trigger/lambda_function.zip"
+  filename         = "${path.module}/functions/trigger/trigger_function.zip"
   function_name    = "${var.project_name}-ml-batch-trigger"
   role            = aws_iam_role.lambda_batch_trigger_role.arn
-  handler         = "index.lambda_handler"
+  handler         = "trigger_function.lambda_handler"
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   runtime         = "python3.11"
   timeout         = 60
@@ -155,8 +155,8 @@ resource "aws_lambda_function" "batch_job_trigger" {
 ###############################################################
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/functions/trigger/lambda_function.py"
-  output_path = "${path.module}/functions/trigger/lambda_function.zip"
+  source_file = "${path.module}/functions/trigger/trigger_function.py"
+  output_path = "${path.module}/functions/trigger/trigger_function.zip"
 }
 
 ###############################################################
@@ -194,7 +194,7 @@ resource "aws_lambda_function" "batch_job_monitor" {
   filename         = "${path.module}/functions/monitor/monitor_function.zip"
   function_name    = "${var.project_name}-ml-batch-monitor"
   role            = aws_iam_role.lambda_batch_trigger_role.arn
-  handler         = "monitor.lambda_handler"
+  handler         = "monitor_function.lambda_handler"
   source_code_hash = data.archive_file.monitor_zip[0].output_base64sha256
   runtime         = "python3.11"
   timeout         = 60
