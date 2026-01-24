@@ -119,7 +119,7 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
 # Lambda Function - Batch Job Trigger                         #
 ###############################################################
 resource "aws_lambda_function" "batch_job_trigger" {
-  filename         = "${path.module}/lambda_function.zip"
+  filename         = "${path.module}/functions/trigger/lambda_function.zip"
   function_name    = "${var.project_name}-ml-batch-trigger"
   role            = aws_iam_role.lambda_batch_trigger_role.arn
   handler         = "index.lambda_handler"
@@ -156,7 +156,7 @@ resource "aws_lambda_function" "batch_job_trigger" {
 data "archive_file" "lambda_zip" {
   type        = "zip"
   source_file = "${path.module}/functions/trigger/lambda_function.py"
-  output_path = "${path.module}/lambda_function.zip"
+  output_path = "${path.module}/functions/trigger/lambda_function.zip"
 }
 
 ###############################################################
@@ -191,7 +191,7 @@ resource "aws_s3_bucket_notification" "ml_input_notification" {
 ###############################################################
 resource "aws_lambda_function" "batch_job_monitor" {
   count            = var.enable_job_monitoring ? 1 : 0
-  filename         = "${path.module}/monitor_function.zip"
+  filename         = "${path.module}/functions/monitor/monitor_function.zip"
   function_name    = "${var.project_name}-ml-batch-monitor"
   role            = aws_iam_role.lambda_batch_trigger_role.arn
   handler         = "monitor.lambda_handler"
@@ -214,7 +214,7 @@ data "archive_file" "monitor_zip" {
   count       = var.enable_job_monitoring ? 1 : 0
   type        = "zip"
   source_file = "${path.module}/functions/monitor/monitor_function.py"
-  output_path = "${path.module}/monitor_function.zip"
+  output_path = "${path.module}/functions/monitor/monitor_function.zip"
 }
 
 ###############################################################
