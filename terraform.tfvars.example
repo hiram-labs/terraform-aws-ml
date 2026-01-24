@@ -1,0 +1,76 @@
+###############################################################
+# Core Configuration                                          #
+###############################################################
+
+project_name = "ml-pipeline"
+environment  = "dev"
+aws_region   = "us-east-1"
+
+###############################################################
+# Network Configuration                                        #
+###############################################################
+
+vpc_id = "vpc-0c336bcb1e4dab17a"
+private_subnets = [
+  "subnet-0f48972e9358542de",
+  "subnet-0aae54b6049ab3972"
+]
+
+###############################################################
+# SNS Configuration                                            #
+###############################################################
+
+sns_topic_arn = "arn:aws:sns:us-east-1:277707129399:ml-pipeline-alerts"
+
+###############################################################
+# Container Images                                             #
+###############################################################
+
+ml_container_image       = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python:latest"
+notebook_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-notebook:latest"
+
+###############################################################
+# GPU Instance Configuration                                   #
+###############################################################
+
+ml_gpu_instance_types = ["g4dn.xlarge", "g4dn.2xlarge", "g5.xlarge"]
+ml_use_spot_instances = true
+ml_min_vcpus          = 0
+ml_max_vcpus          = 256
+
+###############################################################
+# Job Resource Configuration                                   #
+###############################################################
+
+ml_job_vcpus  = 4
+ml_job_memory = 16384
+ml_job_gpus   = 1
+
+###############################################################
+# Storage Configuration                                        #
+###############################################################
+
+force_destroy_buckets   = true
+ml_input_retention_days = 90
+enable_ml_models_bucket = true
+
+###############################################################
+# Monitoring & Notifications                                   #
+###############################################################
+
+ml_trigger_prefix         = ""
+enable_ml_notifications   = true
+enable_ml_job_monitoring  = true
+log_retention_days        = 7
+
+###############################################################
+# Resource Tags                                                #
+###############################################################
+
+common_tags = {
+  Project     = "ml-pipeline"
+  Environment = "dev"
+  ManagedBy   = "terraform"
+  Owner       = "data-science-team"
+  CostCenter  = "engineering"
+}
