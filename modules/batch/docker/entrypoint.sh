@@ -1,7 +1,7 @@
 #!/bin/bash
 ###############################################################
 # ML Job Entry Point Script                                   #
-# Handles S3 downloads, job execution, and result uploads     #
+# Handles S3 downloads, Python script execution, and uploads  #
 ###############################################################
 
 set -e
@@ -24,28 +24,16 @@ else
     echo "WARNING: nvidia-smi not found. Running in CPU mode."
 fi
 
-# Download input file from S3
+# Download and execute Python script from S3
 if [ -n "${INPUT_KEY}" ]; then
-    echo "Downloading input: s3://${INPUT_BUCKET}/${INPUT_KEY}"
-    aws s3 cp "s3://${INPUT_BUCKET}/${INPUT_KEY}" /workspace/input_file
-    
-    # Determine file type and execute accordingly
-    if [[ "${INPUT_KEY}" == *.ipynb ]]; then
-        echo "Executing Jupyter notebook with papermill..."
-        papermill /workspace/input_file /workspace/output.ipynb \
-            --log-output \
-            --report-mode
+    if [[ "${INPUT_KEY}" == *.py ]]; then
+        echo "Downloading Python script: s3://${INPUT_BUCKET}/${INPUT_KEY}"
+        aws s3 cp "s3://${INPUT_BUCKET}/${INPUT_KEY}" /workspace/script.py
         
-        # Upload executed notebook
-        aws s3 cp /workspace/output.ipynb \
-            "s3://${OUTPUT_BUCKET}/${OUTPUT_PREFIX}output.ipynb"
-        
-    elif [[ "${INPUT_KEY}" == *.py ]]; then
         echo "Executing Python script..."
-        python3 /workspace/input_file
-        
+        python3 /workspace/script.py
     else
-        echo "Unknown file type: ${INPUT_KEY}"
+        echo "Error: Only Python scripts (.py) are supported. Received: ${INPUT_KEY}"
         exit 1
     fi
 else

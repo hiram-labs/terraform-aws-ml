@@ -200,7 +200,6 @@ resource "aws_security_group" "batch_compute_sg" {
 ###############################################################
 resource "aws_launch_template" "batch_gpu_lt" {
   name_prefix = "${var.project_name}-batch-gpu-"
-  image_id    = var.ecs_gpu_ami_id
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -216,10 +215,6 @@ resource "aws_launch_template" "batch_gpu_lt" {
   iam_instance_profile {
     arn = aws_iam_instance_profile.ecs_instance_profile.arn
   }
-
-  user_data = base64encode(templatefile("${path.module}/scripts/user-data.sh", {
-    cluster_name = "${var.project_name}-batch-gpu-cluster"
-  }))
 
   tag_specifications {
     resource_type = "instance"
@@ -238,10 +233,10 @@ resource "aws_launch_template" "batch_gpu_lt" {
 # Batch Compute Environment - GPU Optimized                   #
 ###############################################################
 resource "aws_batch_compute_environment" "gpu_compute_env" {
-  compute_environment_name = "${var.project_name}-ml-gpu-compute-env"
-  type                     = "MANAGED"
-  state                    = "ENABLED"
-  service_role             = aws_iam_role.batch_service_role.arn
+  compute_environment_name_prefix = "${var.project_name}-ml-gpu-"
+  type                            = "MANAGED"
+  state                           = "ENABLED"
+  service_role                    = aws_iam_role.batch_service_role.arn
 
   compute_resources {
     type                = var.use_spot_instances ? "SPOT" : "EC2"
@@ -284,6 +279,10 @@ resource "aws_batch_compute_environment" "gpu_compute_env" {
 
   depends_on = [aws_iam_role_policy_attachment.batch_service_policy]
 
+  lifecycle {
+    create_before_destroy = true
+  }
+
   tags = var.common_tags
 }
 
@@ -320,7 +319,7 @@ resource "aws_iam_role_policy_attachment" "spot_fleet_policy" {
 # Batch Job Queue - High Priority for ML Jobs                 #
 ###############################################################
 resource "aws_batch_job_queue" "ml_job_queue" {
-  name     = "${var.project_name}-ml-job-queue"
+  name     = "${var.project_name}-ml-gpu-job-queue"
   state    = "ENABLED"
   priority = 1
 
@@ -328,6 +327,8 @@ resource "aws_batch_job_queue" "ml_job_queue" {
     order               = 1
     compute_environment = aws_batch_compute_environment.gpu_compute_env.arn
   }
+
+  depends_on = [aws_batch_compute_environment.gpu_compute_env]
 
   tags = var.common_tags
 }
@@ -437,36 +438,134 @@ resource "aws_batch_job_definition" "ml_python_job" {
 }
 
 ###############################################################
-# Batch Job Definition - Jupyter Notebook Execution           #
+# Launch Template for CPU Instances                           #
 ###############################################################
-resource "aws_batch_job_definition" "ml_notebook_job" {
-  name = "${var.project_name}-ml-notebook-job"
-  type = "container"
+resource "aws_launch_template" "batch_cpu_lt" {
+  name_prefix = "${var.project_name}-batch-cpu-"
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size           = var.root_volume_size
+      volume_type           = "gp3"
+      delete_on_termination = true
+      encrypted             = true
+    }
+  }
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.ecs_instance_profile.arn
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(
+      var.common_tags,
+      {
+        Name = "${var.project_name}-batch-cpu-instance"
+      }
+    )
+  }
+
+  tags = var.common_tags
+}
+
+###############################################################
+# Batch Compute Environment                                   #
+###############################################################
+resource "aws_batch_compute_environment" "cpu_compute_env" {
+  compute_environment_name_prefix = "${var.project_name}-ml-cpu-"
+  type                            = "MANAGED"
+  state                           = "ENABLED"
+  service_role                    = aws_iam_role.batch_service_role.arn
+
+  compute_resources {
+    type                = var.cpu_use_spot_instances ? "SPOT" : "EC2"
+    allocation_strategy = var.cpu_use_spot_instances ? "SPOT_CAPACITY_OPTIMIZED" : "BEST_FIT_PROGRESSIVE"
+    
+    min_vcpus     = var.cpu_min_vcpus
+    max_vcpus     = var.cpu_max_vcpus
+    desired_vcpus = var.cpu_desired_vcpus
+
+    instance_role = aws_iam_instance_profile.ecs_instance_profile.arn
+    instance_type = var.cpu_instance_types
+
+    security_group_ids = [aws_security_group.batch_compute_sg.id]
+    subnets            = var.private_subnets
+
+    launch_template {
+      launch_template_id = aws_launch_template.batch_cpu_lt.id
+      version            = "$Latest"
+    }
+
+    ec2_configuration {
+      image_type = "ECS_AL2"
+    }
+
+    spot_iam_fleet_role = var.cpu_use_spot_instances ? aws_iam_role.spot_fleet_role[0].arn : null
+    bid_percentage      = var.cpu_use_spot_instances ? var.spot_bid_percentage : null
+
+    tags = merge(
+      var.common_tags,
+      {
+        Name = "${var.project_name}-batch-cpu-compute"
+      }
+    )
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.batch_service_policy]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = var.common_tags
+}
+
+###############################################################
+# Batch Job Queue - CPU for Non-GPU Workloads (Optional)      #
+###############################################################
+resource "aws_batch_job_queue" "cpu_job_queue" {
+  name     = "${var.project_name}-ml-cpu-job-queue"
+  state    = "ENABLED"
+  priority = 1
+
+  compute_environment_order {
+    order               = 1
+    compute_environment = aws_batch_compute_environment.cpu_compute_env.arn
+  }
+
+  depends_on = [aws_batch_compute_environment.cpu_compute_env]
+
+  tags = var.common_tags
+}
+
+###############################################################
+# Batch Job Definition - CPU (No GPU)                         #
+###############################################################
+resource "aws_batch_job_definition" "ml_python_cpu_job" {
+  name  = "${var.project_name}-ml-python-cpu-job"
+  type  = "container"
 
   platform_capabilities = ["EC2"]
 
   container_properties = jsonencode({
-    image = var.notebook_container_image
+    image = var.ml_container_image
 
     resourceRequirements = [
       {
         type  = "VCPU"
-        value = tostring(var.job_vcpus)
+        value = tostring(var.cpu_job_vcpus)
       },
       {
         type  = "MEMORY"
-        value = tostring(var.job_memory)
-      },
-      {
-        type  = "GPU"
-        value = tostring(var.job_gpus)
+        value = tostring(var.cpu_job_memory)
       }
     ]
 
-    jobRoleArn       = aws_iam_role.batch_job_role.arn
-    executionRoleArn = aws_iam_role.ecs_task_execution_role.arn
-
-    command = ["papermill", "input.ipynb", "output.ipynb"]
+    jobRoleArn            = aws_iam_role.batch_job_role.arn
+    executionRoleArn      = aws_iam_role.ecs_task_execution_role.arn
 
     environment = [
       {
@@ -488,34 +587,10 @@ resource "aws_batch_job_definition" "ml_notebook_job" {
       options = {
         "awslogs-group"         = aws_cloudwatch_log_group.batch_jobs_log_group.name
         "awslogs-region"        = var.aws_region
-        "awslogs-stream-prefix" = "notebook-job"
+        "awslogs-stream-prefix" = "ml-cpu-job"
       }
     }
-
-    linuxParameters = {
-      devices = [
-        {
-          hostPath      = "/dev/nvidia0"
-          containerPath = "/dev/nvidia0"
-          permissions   = ["READ", "WRITE", "MKNOD"]
-        },
-        {
-          hostPath      = "/dev/nvidiactl"
-          containerPath = "/dev/nvidiactl"
-          permissions   = ["READ", "WRITE", "MKNOD"]
-        },
-        {
-          hostPath      = "/dev/nvidia-uvm"
-          containerPath = "/dev/nvidia-uvm"
-          permissions   = ["READ", "WRITE", "MKNOD"]
-        }
-      ]
-    }
   })
-
-  retry_strategy {
-    attempts = var.job_retry_attempts
-  }
 
   timeout {
     attempt_duration_seconds = var.job_timeout_seconds

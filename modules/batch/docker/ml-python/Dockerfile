@@ -58,13 +58,6 @@ RUN pip3 install \
     opencv-python-headless==4.8.1.78 \
     albumentations==1.3.1
 
-# Install Jupyter and papermill for notebook execution
-RUN pip3 install \
-    jupyter==1.0.0 \
-    papermill==2.4.0 \
-    ipykernel==6.25.2 \
-    nbconvert==7.8.0
-
 # Install monitoring and logging
 RUN pip3 install \
     tensorboard==2.15.0 \
@@ -74,10 +67,10 @@ RUN pip3 install \
 # Create working directory
 WORKDIR /workspace
 
-# Copy entry point script
-COPY ml-python/ml_entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/ml_entrypoint.sh
+# Copy entry point script (shared across images)
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set entry point
-ENTRYPOINT ["/usr/local/bin/ml_entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["python3"]

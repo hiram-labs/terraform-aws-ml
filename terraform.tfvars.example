@@ -1,5 +1,5 @@
 ###############################################################
-# Core Configuration                                          #
+# PROJECT & DEPLOYMENT CONFIGURATION                          #
 ###############################################################
 
 project_name = "ml-pipeline"
@@ -7,65 +7,100 @@ environment  = "dev"
 aws_region   = "us-east-1"
 
 ###############################################################
-# Network Configuration                                        #
+# NETWORK CONFIGURATION                                       #
+# VPC and subnets are created automatically                   #
+# Optional: Customize vpc_cidr and availability_zones         #
 ###############################################################
 
-vpc_id = "vpc-0c336bcb1e4dab17a"
-private_subnets = [
-  "subnet-0f48972e9358542de",
-  "subnet-0aae54b6049ab3972"
-]
+# vpc_cidr = "10.0.0.0/16"  # Optional: default is 10.0.0.0/16
+# availability_zones = [     # Optional: defaults to first 2 AZs in region
+#   "us-east-1a",
+#   "us-east-1b"
+# ]
 
 ###############################################################
-# SNS Configuration                                            #
+# CONTAINER IMAGE                                             #
 ###############################################################
 
-sns_topic_arn = "arn:aws:sns:us-east-1:277707129399:ml-pipeline-alerts"
+ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python:latest"
 
 ###############################################################
-# Container Images                                             #
+# GPU COMPUTE ENVIRONMENT                                     #
 ###############################################################
+# For GPU-accelerated ML workloads. Scales to zero when idle.  #
 
-ml_container_image       = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python:latest"
-notebook_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-notebook:latest"
+# Instance types: g4dn (NVIDIA T4), g5 (NVIDIA A10G)
+ml_gpu_instance_types     = ["g4dn.xlarge", "g4dn.2xlarge", "g5.xlarge"]
 
-###############################################################
-# GPU Instance Configuration                                   #
-###############################################################
+# Cost optimization: true = use Spot instances (~70% savings)
+ml_gpu_use_spot_instances = true
 
-ml_gpu_instance_types = ["g4dn.xlarge", "g4dn.2xlarge", "g5.xlarge"]
-ml_use_spot_instances = true
-ml_min_vcpus          = 0
-ml_max_vcpus          = 256
+# Auto-scaling: 0 = scale to zero when idle, 256 = max capacity
+ml_gpu_min_vcpus          = 0
+ml_gpu_max_vcpus          = 256
+ml_gpu_desired_vcpus      = 0
 
-###############################################################
-# Job Resource Configuration                                   #
-###############################################################
-
-ml_job_vcpus  = 4
-ml_job_memory = 16384
-ml_job_gpus   = 1
+# Default resource allocation per GPU job
+ml_gpu_job_vcpus  = 4
+ml_gpu_job_memory = 16384  # MiB (16 GB)
+ml_gpu_job_gpus   = 1
 
 ###############################################################
-# Storage Configuration                                        #
+# CPU COMPUTE ENVIRONMENT (Always Available)                  #
+###############################################################
+# For non-GPU workloads (data prep, inference). Scales to zero. #
+
+# Instance types: t3 (burstable), m5 (general-purpose)
+ml_cpu_instance_types     = ["m5.large", "m5.xlarge", "c6a.large", "c6a.xlarge"]
+
+# CPU workloads rarely benefit from Spot (set to true if needed)
+ml_cpu_use_spot_instances = true
+
+# Auto-scaling: typically smaller than GPU (128 vCPU max)
+ml_cpu_min_vcpus          = 0
+ml_cpu_max_vcpus          = 128
+ml_cpu_desired_vcpus      = 0
+
+# Default resource allocation per CPU job
+ml_cpu_job_vcpus  = 2
+ml_cpu_job_memory = 4096  # MiB (4 GB)
+
+###############################################################
+# STORAGE CONFIGURATION                                       #
 ###############################################################
 
-force_destroy_buckets   = true
+# Allow deletion of S3 buckets even if they contain objects
+force_destroy_buckets = true
+
+# Retention policy for input data (scripts)
 ml_input_retention_days = 90
+
+# Create separate S3 bucket for trained models
 enable_ml_models_bucket = true
 
 ###############################################################
-# Monitoring & Notifications                                   #
+# MONITORING & NOTIFICATIONS                                  #
 ###############################################################
 
-ml_trigger_prefix         = "jobs/"
-enable_ml_notifications   = true
-enable_ml_job_monitoring  = true
-log_retention_days        = 7
+# SNS notifications for job status (success/failure)
+enable_ml_notifications = true
+
+# Email addresses to receive job notifications
+notification_emails = [
+  # "your-email@example.com",
+  # "team@example.com"
+]
+
+# Lambda monitoring for job completion events
+enable_ml_job_monitoring = true
+
+# CloudWatch log retention in days (7 = 1 week)
+log_retention_days = 7
 
 ###############################################################
-# Resource Tags                                                #
+# RESOURCE TAGS                                               #
 ###############################################################
+# Applied to all AWS resources for billing, access control    #
 
 common_tags = {
   Project     = "ml-pipeline"

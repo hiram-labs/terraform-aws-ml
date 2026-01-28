@@ -34,26 +34,16 @@ variable "aws_region" {
 # Network Configuration                                        #
 ###############################################################
 
-variable "vpc_id" {
+variable "vpc_cidr" {
   type        = string
-  description = "VPC ID (required if use_existing_vpc = false)"
-  default     = ""
+  description = "CIDR block for the VPC"
+  default     = "10.0.0.0/16"
 }
 
-variable "private_subnets" {
+variable "availability_zones" {
   type        = list(string)
-  description = "Private subnet IDs (required if use_existing_vpc = false)"
-  default     = []
-}
-
-###############################################################
-# SNS Configuration                                            #
-###############################################################
-
-variable "sns_topic_arn" {
-  type        = string
-  description = "SNS topic ARN for notifications (required if use_existing_sns = false)"
-  default     = ""
+  description = "List of availability zones for subnet deployment"
+  default     = []  # Will use first 2 AZs in region if not specified
 }
 
 ###############################################################
@@ -66,12 +56,6 @@ variable "ml_container_image" {
   default     = "tensorflow/tensorflow:latest-gpu"
 }
 
-variable "notebook_container_image" {
-  type        = string
-  description = "ECR URI for Jupyter notebook container image"
-  default     = "jupyter/tensorflow-notebook:latest"
-}
-
 ###############################################################
 # GPU Instance Configuration                                   #
 ###############################################################
@@ -82,44 +66,100 @@ variable "ml_gpu_instance_types" {
   default     = ["g4dn.xlarge", "g4dn.2xlarge", "g5.xlarge"]
 }
 
-variable "ml_use_spot_instances" {
+variable "ml_gpu_use_spot_instances" {
   type        = bool
-  description = "Use Spot instances for cost optimization"
+  description = "Use Spot instances for GPU compute (cost optimization)"
   default     = true
 }
 
-variable "ml_min_vcpus" {
+variable "ml_gpu_min_vcpus" {
   type        = number
-  description = "Minimum vCPUs for Batch compute environment"
+  description = "Minimum vCPUs for GPU compute environment"
   default     = 0
 }
 
-variable "ml_max_vcpus" {
+variable "ml_gpu_max_vcpus" {
   type        = number
-  description = "Maximum vCPUs for Batch compute environment"
+  description = "Maximum vCPUs for GPU compute environment"
   default     = 256
 }
 
 ###############################################################
-# Job Resource Configuration                                   #
+# GPU Job Resource Configuration                               #
 ###############################################################
 
-variable "ml_job_vcpus" {
+variable "ml_gpu_job_vcpus" {
   type        = number
-  description = "Default vCPUs per ML job"
+  description = "Default vCPUs per GPU job"
   default     = 4
 }
 
-variable "ml_job_memory" {
+variable "ml_gpu_job_memory" {
   type        = number
-  description = "Default memory (MiB) per ML job"
+  description = "Default memory (MiB) per GPU job"
   default     = 16384
 }
 
-variable "ml_job_gpus" {
+variable "ml_gpu_job_gpus" {
   type        = number
-  description = "Default GPUs per ML job"
+  description = "Default GPUs per job"
   default     = 1
+}
+
+variable "ml_gpu_desired_vcpus" {
+  type        = number
+  description = "Desired vCPUs for GPU compute environment"
+  default     = 0
+}
+
+###############################################################
+# CPU Instance Configuration                                   #
+###############################################################
+
+variable "ml_cpu_instance_types" {
+  type        = list(string)
+  description = "List of CPU instance types for non-GPU workloads"
+  default     = ["m5.large", "m5.xlarge", "c6a.large", "c6a.xlarge"]
+}
+
+variable "ml_cpu_use_spot_instances" {
+  type        = bool
+  description = "Use Spot instances for CPU compute (cost optimization)"
+  default     = true
+}
+
+variable "ml_cpu_min_vcpus" {
+  type        = number
+  description = "Minimum vCPUs for CPU compute environment"
+  default     = 0
+}
+
+variable "ml_cpu_max_vcpus" {
+  type        = number
+  description = "Maximum vCPUs for CPU compute environment"
+  default     = 128
+}
+
+variable "ml_cpu_desired_vcpus" {
+  type        = number
+  description = "Desired vCPUs for CPU compute environment"
+  default     = 0
+}
+
+###############################################################
+# CPU Job Resource Configuration                               #
+###############################################################
+
+variable "ml_cpu_job_vcpus" {
+  type        = number
+  description = "Default vCPUs per CPU job"
+  default     = 2
+}
+
+variable "ml_cpu_job_memory" {
+  type        = number
+  description = "Default memory (MiB) per CPU job"
+  default     = 4096
 }
 
 ###############################################################
@@ -148,16 +188,16 @@ variable "enable_ml_models_bucket" {
 # Monitoring & Notifications                                   #
 ###############################################################
 
-variable "ml_trigger_prefix" {
-  type        = string
-  description = "S3 prefix that triggers Lambda jobs (empty = all uploads trigger jobs)"
-  default     = ""
-}
-
 variable "enable_ml_notifications" {
   type        = bool
   description = "Enable SNS notifications for ML job status"
   default     = true
+}
+
+variable "notification_emails" {
+  type        = list(string)
+  description = "List of email addresses to receive job notifications"
+  default     = []
 }
 
 variable "enable_ml_job_monitoring" {

@@ -1,223 +1,310 @@
 # GPU-Accelerated ML Pipeline
 
-AWS infrastructure for running ML workloads on GPU instances with S3 integration.
+AWS infrastructure for running ML workloads on GPU instances with SNS-based event triggering.
 
 ## Architecture
 
-```
-S3 Upload → Lambda → AWS Batch (GPU) → S3 Results
-```
+Each AWS service is managed by a dedicated Terraform module for consistency and maintainability:
 
-**Features:**
-- GPU compute (g4dn, g5 families) with auto-scaling (0-256 vCPUs)
-- Spot instances (70% cost savings)
-- TensorFlow 2.15 + PyTorch 2.1 + CUDA 12.2
-- Automated notebook execution via Papermill
-- SNS notifications for job status
+- **VPC Module** (`modules/vpc`) - Networking with public subnets (auto-assign public IP enabled)
+- **SNS Module** (`modules/sns`) - Event topics for triggering and notifications
+- **S3 Module** (`modules/s3`) - Data buckets for inputs, outputs, and models
+- **Batch Module** (`modules/batch`) - GPU and CPU compute environments
+- **Lambda Module** (`modules/lambda`) - Event dispatcher with compute routing and monitoring
 
----
+All modules are orchestrated from the root configuration.
 
-## Deployment
+**Key Features:**
+- **Automatic VPC creation** - Public subnets with internet gateway (no NAT gateway required)
+- **GPU compute** (g4dn, g5 families) - TensorFlow 2.15 + PyTorch 2.1 + CUDA 12.2
+- **CPU compute** - t3, m5 instances for non-GPU workloads
+- **Auto-scaling** - Both GPU and CPU scale to zero when idle (no cost)
+- **Spot instances** - Optional for both GPU and CPU (70% cost savings)
+- **Dynamic routing** - Route jobs to GPU or CPU based on `compute_type` parameter
+- **Configurable defaults** - Set default vCPUs/memory/GPUs in Terraform, override per-job
+- **Event-driven triggers** - SNS-based job submission with pluggable architecture
+- **Error handling** - Dead letter queues for both dispatcher and monitor failures
+- **Email notifications** - Configurable SNS email subscriptions for job status alerts
 
-### 0. Set Environment Variables
+## Quick Start
+
+### 1. Initialize Terraform Backend
 
 ```bash
 export PROJECT_NAME="ml-pipeline"
 export AWS_REGION="us-east-1"
-export ENVIRONMENT="dev"
-```
 
-### 1. State Backend Setup
-
-```bash
-# Create state bucket and lock table
-aws s3 mb s3://${PROJECT_NAME}-${ENVIRONMENT}-terraform-state --region $AWS_REGION
-aws s3api put-bucket-versioning \
-  --bucket ${PROJECT_NAME}-${ENVIRONMENT}-terraform-state \
+aws s3 mb s3://${PROJECT_NAME}-terraform-state --region $AWS_REGION
+aws s3api put-bucket-versioning --bucket ${PROJECT_NAME}-terraform-state \
   --versioning-configuration Status=Enabled
 
-aws dynamodb create-table \
-  --table-name ${PROJECT_NAME}-${ENVIRONMENT}-terraform-lock \
+aws dynamodb create-table --table-name ${PROJECT_NAME}-terraform-lock \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
   --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region $AWS_REGION
+  --billing-mode PAY_PER_REQUEST --region $AWS_REGION
 ```
 
-### 2. Configure and Deploy
+All AWS resources including VPC, subnets, SNS topics, S3 buckets, Lambda functions, and Batch infrastructure are created automatically.
+
+### 2. Deploy Infrastructure
 
 ```bash
 cp terraform.tfvars.example terraform.tfvars
-nano terraform.tfvars  # Update: vpc_id, subnets, sns_topic_arn, region
+# Edit terraform.tfvars with your settings (VPC is created automatically)
 
-terraform init \
-  -backend-config="bucket=${PROJECT_NAME}-${ENVIRONMENT}-terraform-state" \
-  -backend-config="dynamodb_table=${PROJECT_NAME}-${ENVIRONMENT}-terraform-lock" \
+terraform init -backend-config="bucket=${PROJECT_NAME}-terraform-state" \
+  -backend-config="dynamodb_table=${PROJECT_NAME}-terraform-lock" \
   -backend-config="region=$AWS_REGION"
 
 terraform apply
 ```
 
-### 3. Build Container Images
+### 3. Build and Push Container Image
+
+Choose which container image to build:
+
+**Option A: Slim Python Image (Fast - ~2 minutes)**
+Lightweight Python 3.11 with AWS CLI, NumPy, Pandas - perfect for testing and CPU workloads:
+
+```bash
+cd modules/batch/docker
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME slim
+cd $OLDPWD
+
+# Copy the ECR URI from output
+```
+
+**Option B: Full GPU Image (Slow - ~15-20 minutes)**
+Heavy container with CUDA, TensorFlow 2.15, PyTorch 2.1 - for GPU training/inference:
+
+```bash
+cd modules/batch/docker
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME full
+cd $OLDPWD
+
+# Copy the ECR URI from output
+```
+
+**Option C: Build Both (takes ~20-25 minutes total)**
 
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME
 cd $OLDPWD
+# Choose which one to use
 ```
 
-Update `terraform.tfvars` with the ECR URIs shown in output, then:
+Then update `terraform.tfvars` with the ECR image URI and apply:
+
 ```bash
-cd ../../..
+# Edit terraform.tfvars
+ml_container_image = "<ECR_URI_from_build_output>"
+
 terraform apply
 ```
 
----
+### 4. Confirm Email Notifications
 
-## Usage
-
-### Running Jobs
-
-```bash
-INPUT_BUCKET=$(terraform output -raw ml_input_bucket)
-
-# Python script (auto-triggers job)
-aws s3 cp train.py s3://$INPUT_BUCKET/jobs/
-
-# Jupyter notebook (auto-triggers job)
-aws s3 cp inference.ipynb s3://$INPUT_BUCKET/notebooks/
-
-# Retrieve results
-OUTPUT_BUCKET=$(terraform output -raw ml_output_bucket)
-aws s3 sync s3://$OUTPUT_BUCKET/results/ ./results/
-```
-
-### Python Script Example
-
-```python
-import torch
-import boto3
-import os
-
-# GPU check
-print(f"CUDA: {torch.cuda.is_available()}, GPUs: {torch.cuda.device_count()}")
-
-# S3 access
-s3 = boto3.client('s3')
-input_bucket = os.environ['ML_INPUT_BUCKET']
-output_bucket = os.environ['ML_OUTPUT_BUCKET']
-
-# Download data
-s3.download_file(input_bucket, 'data/train.csv', '/tmp/train.csv')
-
-# Train model
-device = torch.device('cuda')
-model = YourModel().to(device)
-# ... training code ...
-
-# Save results
-torch.save(model.state_dict(), '/tmp/model.pth')
-s3.upload_file('/tmp/model.pth', output_bucket, 'models/trained.pth')
-```
-
-### Environment Variables (Auto-configured)
-
-- `ML_INPUT_BUCKET` - Input bucket name
-- `ML_OUTPUT_BUCKET` - Output bucket name
-- `AWS_DEFAULT_REGION` - AWS region
-
----
+Check your email for an SNS subscription confirmation from AWS and click the confirmation link to activate job notifications.
 
 ## Configuration
 
-### Key Variables (`terraform.tfvars`)
+Customize defaults and settings in `terraform.tfvars`:
 
-```hcl
-project_name = "ml-pipeline"
-aws_region   = "us-east-1"
+**GPU Defaults:**
+- `ml_gpu_job_vcpus` - Default vCPUs for GPU jobs (e.g., 4)
+- `ml_gpu_job_memory` - Default memory in MB (e.g., 16384)
+- `ml_gpu_job_gpus` - Default GPU count (e.g., 1)
+- `ml_gpu_use_spot_instances` - Use spot instances for 70% savings (true/false)
 
-vpc_id          = "vpc-xxxxx"
-private_subnets = ["subnet-a", "subnet-b", "subnet-c"]
-sns_topic_arn   = "arn:aws:sns:REGION:ACCOUNT_ID:alerts"
+**CPU Defaults:**
+- `ml_cpu_job_vcpus` - Default vCPUs for CPU jobs (e.g., 2)
+- `ml_cpu_job_memory` - Default memory in MB (e.g., 4096)
+- `ml_cpu_use_spot_instances` - Use spot instances (true/false)
 
-ml_container_image       = "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/PROJECT-ml-python:latest"
-notebook_container_image = "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/PROJECT-ml-notebook:latest"
+**Notifications:**
+- `notification_emails` - List of emails for job status alerts
 
-ml_gpu_instance_types = ["g4dn.xlarge", "g5.xlarge"]
-ml_use_spot_instances = true
-ml_max_vcpus          = 256
+See [terraform.tfvars.example](terraform.tfvars.example) for complete template and [variables.tf](variables.tf) for all options.
 
-ml_job_vcpus  = 4
-ml_job_memory = 16384  # MiB
-ml_job_gpus   = 1
+## Writing ML Scripts
 
-ml_trigger_prefix = ""  # "" = all uploads, "jobs/" = only jobs/ folder
+### Add Your Job Script
+
+1. **Upload script to S3:**
+```bash
+INPUT_BUCKET=$(terraform output -raw ml_input_bucket)
+aws s3 cp my_training_script.py s3://$INPUT_BUCKET/jobs/train.py
 ```
 
-See `variables.tf` for all options.
+2. **Available environment variables:**
+   - `ML_INPUT_BUCKET` - Input and script bucket
+   - `ML_OUTPUT_BUCKET` - Results bucket
+   - `OUTPUT_PREFIX` - Job-specific output path
+   - `COMPUTE_TYPE` - Job type (gpu/cpu)
+   - `TRIGGER_USER`, `TRIGGER_PROJECT`, `TRIGGER_EXPERIMENT` - Metadata
+   - `AWS_DEFAULT_REGION` - AWS region
 
----
+3. **Save outputs:**
+   - Write files to `/workspace/output/` - automatically uploaded to S3
+
+4. **Examples:**
+   - [examples/gpu_training.py](examples/gpu_training.py) - GPU training
+   - [examples/gpu_inference.py](examples/gpu_inference.py) - GPU inference
+   - [examples/cpu_processing.py](examples/cpu_processing.py) - CPU processing
+
+## Triggering Jobs
+
+Get the SNS topic ARN:
+```bash
+TOPIC_ARN=$(terraform output -raw trigger_events_topic_arn)
+```
+
+### GPU Job (Default Resources)
+
+Uses defaults from terraform.tfvars (e.g., 4 vCPU, 16GB, 1 GPU):
+
+```bash
+aws sns publish --topic-arn "$TOPIC_ARN" --message '{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/gpu_training.py"
+  },
+  "metadata": {
+    "user": "ml-engineer",
+    "project": "model-training"
+  }
+}'
+```
+
+### GPU Job (Custom Resources)
+
+Override defaults for larger jobs:
+
+```bash
+aws sns publish --topic-arn "$TOPIC_ARN" --message '{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/gpu_training.py",
+    "vcpus": 16,
+    "memory": 65536,
+    "gpus": 4
+  },
+  "metadata": {
+    "user": "ml-engineer",
+    "project": "model-training"
+  }
+}'
+```
+
+### CPU Job (Default Resources)
+
+Uses defaults from terraform.tfvars (e.g., 2 vCPU, 4GB):
+
+```bash
+aws sns publish --topic-arn "$TOPIC_ARN" --message '{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/cpu_processing.py",
+    "compute_type": "cpu"
+  },
+  "metadata": {
+    "user": "ml-engineer",
+    "project": "data-pipeline"
+  }
+}'
+```
+
+### CPU Job (Custom Resources)
+
+Override defaults for heavy processing:
+
+```bash
+aws sns publish --topic-arn "$TOPIC_ARN" --message '{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/cpu_processing.py",
+    "compute_type": "cpu",
+    "vcpus": 8,
+    "memory": 16384
+  },
+  "metadata": {
+    "user": "ml-engineer",
+    "project": "data-pipeline"
+  }
+}'
+```
 
 ## Monitoring
 
-### Logs
+### Email Notifications
 
+Configured emails receive alerts for:
+- Job completions (SUCCESS/FAILED)
+- Monitor Lambda failures (via DLQ)
+
+### Email Notifications
+
+Configured emails receive alerts for:
+- Job completions (SUCCESS/FAILED)
+- Monitor Lambda failures (via DLQ)
+
+### Logs and Debugging
+
+**Lambda Logs:**
 ```bash
-# Job logs
-aws logs tail /aws/batch/ml-jobs --follow
+# Trigger dispatcher
+aws logs tail /aws/lambda/${PROJECT_NAME}-ml-trigger-dispatcher --follow
 
-# Lambda logs
-aws logs tail /aws/lambda/ml-batch-trigger --follow
-aws logs tail /aws/lambda/ml-batch-monitor --follow
+# Job monitor
+aws logs tail /aws/lambda/${PROJECT_NAME}-ml-job-monitor --follow
 ```
 
-### Job Status
-
+**Batch Jobs:**
 ```bash
 # List running jobs
-aws batch list-jobs --job-queue ml-job-queue --job-status RUNNING
+aws batch list-jobs --job-queue ${PROJECT_NAME}-ml-gpu-job-queue --job-status RUNNING --region $AWS_REGION
+aws batch list-jobs --job-queue ${PROJECT_NAME}-ml-cpu-job-queue --job-status RUNNING --region $AWS_REGION
 
-# Job details
-aws batch describe-jobs --jobs <job-id>
+# View job logs
+aws logs tail /aws/batch/${PROJECT_NAME}-ml-jobs --follow
 ```
 
----
-
-## Troubleshooting
-
-**Jobs not triggering:**
+**Dead Letter Queues:**
 ```bash
-aws s3api get-bucket-notification-configuration --bucket $INPUT_BUCKET
+# Check failed dispatcher messages
+DLQ_URL=$(terraform output -raw trigger_dlq_url)
+aws sqs receive-message --queue-url "$DLQ_URL" --max-number-of-messages 10
+
+# Check failed monitor events
+MONITOR_DLQ_URL=$(terraform output -raw monitor_dlq_url)
+aws sqs receive-message --queue-url "$MONITOR_DLQ_URL" --max-number-of-messages 10
 ```
 
-**GPU not detected:**
+**Terminate Stuck Jobs:**
 ```bash
-aws logs filter-log-events \
-  --log-group-name /aws/batch/ml-jobs \
-  --filter-pattern "nvidia-smi"
+# Terminate a specific job
+aws batch terminate-job --job-id <JOB_ID> --reason "Manual termination" --region $AWS_REGION
 ```
 
-**Increase resources:**
-```hcl
-ml_job_memory = 32768  # 32GB
-ml_job_vcpus  = 8
-```
-
----
-
-## Cost Estimates
+## Cost
 
 - **Idle:** $0/hour (auto-scales to zero)
 - **Development:** ~$45/month (10 jobs/day × 1hr × g4dn.xlarge spot)
-- **Production:** Scales with usage
+- **Production:** Scales with usage (spot instances save 70%)
 
-**Cost controls:**
-- Spot instances enabled by default (70% savings)
-- `ml_max_vcpus` caps maximum scale
-- S3 lifecycle policies for data retention
+## Advanced: Custom Triggers
 
----
+Add new trigger types by extending `BaseTrigger`:
+
+1. Create `modules/lambda/functions/triggers/my_trigger.py`
+2. Implement `execute()` method
+3. Register in `dispatcher.py` `TRIGGER_REGISTRY`
+
+See code comments for examples.
 
 ## Cleanup
 

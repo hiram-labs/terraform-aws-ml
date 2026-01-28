@@ -19,7 +19,7 @@ variable "private_subnets" {
 }
 
 variable "ml_input_bucket" {
-  description = "S3 bucket name for ML input data (scripts/notebooks)"
+  description = "S3 bucket name for ML input data (scripts)"
   type        = string
 }
 
@@ -34,12 +34,6 @@ variable "ml_container_image" {
   default     = "tensorflow/tensorflow:latest-gpu"
 }
 
-variable "notebook_container_image" {
-  description = "ECR container image URI for Jupyter notebook execution"
-  type        = string
-  default     = "jupyter/tensorflow-notebook:latest"
-}
-
 variable "gpu_instance_types" {
   description = "List of GPU instance types for Batch compute environment"
   type        = list(string)
@@ -50,12 +44,6 @@ variable "gpu_instance_type" {
   description = "Default GPU instance type for launch template"
   type        = string
   default     = "g4dn.xlarge"
-}
-
-variable "ecs_gpu_ami_id" {
-  description = "AMI ID for ECS-optimized GPU instances (leave empty for latest)"
-  type        = string
-  default     = "" # Will use latest ECS GPU-optimized AMI
 }
 
 variable "min_vcpus" {
@@ -104,6 +92,48 @@ variable "job_gpus" {
   description = "Number of GPUs for each job"
   type        = number
   default     = 1
+}
+
+variable "cpu_instance_types" {
+  description = "List of CPU instance types for Batch compute environment"
+  type        = list(string)
+  default     = ["t3.large", "t3.xlarge", "m5.large", "m5.xlarge"]
+}
+
+variable "cpu_use_spot_instances" {
+  description = "Use Spot instances for CPU compute (cost optimization)"
+  type        = bool
+  default     = false
+}
+
+variable "cpu_min_vcpus" {
+  description = "Minimum vCPUs for CPU compute environment"
+  type        = number
+  default     = 0
+}
+
+variable "cpu_max_vcpus" {
+  description = "Maximum vCPUs for CPU compute environment"
+  type        = number
+  default     = 128
+}
+
+variable "cpu_desired_vcpus" {
+  description = "Desired vCPUs for CPU compute environment"
+  type        = number
+  default     = 0
+}
+
+variable "cpu_job_vcpus" {
+  description = "Number of vCPUs for CPU jobs"
+  type        = number
+  default     = 2
+}
+
+variable "cpu_job_memory" {
+  description = "Memory in MiB for CPU jobs"
+  type        = number
+  default     = 4096 # 4 GB
 }
 
 variable "job_retry_attempts" {

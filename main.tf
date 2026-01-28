@@ -11,6 +11,31 @@ provider "aws" {
 }
 
 ###############################################################
+# VPC and Networking                                          #
+###############################################################
+
+module "vpc" {
+  source = "./modules/vpc"
+  
+  project_name       = var.project_name
+  vpc_cidr           = var.vpc_cidr
+  availability_zones = local.availability_zones
+  common_tags        = local.common_tags
+}
+
+###############################################################
+# SNS Topics for ML Pipeline Events                           #
+###############################################################
+
+module "sns" {
+  source = "./modules/sns"
+  
+  project_name        = var.project_name
+  notification_emails = var.notification_emails
+  common_tags         = local.common_tags
+}
+
+###############################################################
 # S3 Buckets for ML Data                                      #
 ###############################################################
 
@@ -32,20 +57,27 @@ module "batch" {
   source = "./modules/batch"
   
   project_name             = var.project_name
-  aws_region               = var.aws_region
-  vpc_id                   = var.vpc_id
-  private_subnets          = var.private_subnets
-  ml_input_bucket          = module.s3.ml_input_bucket_name
-  ml_output_bucket         = module.s3.ml_output_bucket_name
-  ml_container_image       = var.ml_container_image
-  notebook_container_image = var.notebook_container_image
-  gpu_instance_types       = var.ml_gpu_instance_types
-  use_spot_instances       = var.ml_use_spot_instances
-  min_vcpus                = var.ml_min_vcpus
-  max_vcpus                = var.ml_max_vcpus
-  job_vcpus                = var.ml_job_vcpus
-  job_memory               = var.ml_job_memory
-  job_gpus                 = var.ml_job_gpus
+  aws_region        = var.aws_region
+  vpc_id            = module.vpc.vpc_id
+  private_subnets   = module.vpc.public_subnet_ids
+  ml_input_bucket   = module.s3.ml_input_bucket_name
+  ml_output_bucket  = module.s3.ml_output_bucket_name
+  ml_container_image = var.ml_container_image
+  gpu_instance_types = var.ml_gpu_instance_types
+  use_spot_instances       = var.ml_gpu_use_spot_instances
+  min_vcpus                = var.ml_gpu_min_vcpus
+  max_vcpus                = var.ml_gpu_max_vcpus
+  desired_vcpus            = var.ml_gpu_desired_vcpus
+  job_vcpus                = var.ml_gpu_job_vcpus
+  job_memory               = var.ml_gpu_job_memory
+  job_gpus                 = var.ml_gpu_job_gpus
+  cpu_instance_types       = var.ml_cpu_instance_types
+  cpu_use_spot_instances   = var.ml_cpu_use_spot_instances
+  cpu_min_vcpus            = var.ml_cpu_min_vcpus
+  cpu_max_vcpus            = var.ml_cpu_max_vcpus
+  cpu_desired_vcpus        = var.ml_cpu_desired_vcpus
+  cpu_job_vcpus            = var.ml_cpu_job_vcpus
+  cpu_job_memory           = var.ml_cpu_job_memory
   log_retention_days       = var.log_retention_days
   common_tags              = local.common_tags
 }
@@ -57,17 +89,24 @@ module "batch" {
 module "lambda" {
   source = "./modules/lambda"
   
-  project_name                    = var.project_name
-  ml_input_bucket                 = module.s3.ml_input_bucket_name
-  ml_output_bucket                = module.s3.ml_output_bucket_name
-  batch_job_queue_name            = module.batch.batch_job_queue_name
-  batch_job_queue_arn             = module.batch.batch_job_queue_arn
-  ml_python_job_definition_name   = module.batch.ml_python_job_definition_name
-  ml_notebook_job_definition_name = module.batch.ml_notebook_job_definition_name
-  input_prefix                    = var.ml_trigger_prefix
-  enable_notifications            = var.enable_ml_notifications
-  sns_topic_arn                   = var.sns_topic_arn
-  enable_job_monitoring           = var.enable_ml_job_monitoring
-  log_retention_days              = var.log_retention_days
-  common_tags                     = local.common_tags
+  project_name                      = var.project_name
+  trigger_events_topic_arn          = module.sns.trigger_events_topic_arn
+  notifications_topic_arn           = module.sns.notifications_topic_arn
+  ml_input_bucket                   = module.s3.ml_input_bucket_name
+  ml_output_bucket                  = module.s3.ml_output_bucket_name
+  ml_output_bucket_arn              = module.s3.ml_output_bucket_arn
+  batch_job_queue_name              = module.batch.batch_job_queue_name
+  batch_job_queue_arn               = module.batch.batch_job_queue_arn
+  ml_python_job_definition_name     = module.batch.ml_python_job_definition_name
+  cpu_job_queue_name                = module.batch.cpu_job_queue_name
+  ml_python_cpu_job_definition_name = module.batch.ml_python_cpu_job_definition_name
+  enable_notifications              = var.enable_ml_notifications
+  enable_job_monitoring             = var.enable_ml_job_monitoring
+  log_retention_days                = var.log_retention_days
+  default_gpu_vcpus                 = var.ml_gpu_job_vcpus
+  default_gpu_memory                = var.ml_gpu_job_memory
+  default_gpu_gpus                  = var.ml_gpu_job_gpus
+  default_cpu_vcpus                 = var.ml_cpu_job_vcpus
+  default_cpu_memory                = var.ml_cpu_job_memory
+  common_tags                       = local.common_tags
 }

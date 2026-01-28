@@ -3,6 +3,16 @@ variable "project_name" {
   type        = string
 }
 
+variable "trigger_events_topic_arn" {
+  description = "ARN of the SNS topic for ML job triggers"
+  type        = string
+}
+
+variable "notifications_topic_arn" {
+  description = "ARN of the SNS topic for ML job notifications"
+  type        = string
+}
+
 variable "ml_input_bucket" {
   description = "S3 bucket name for ML input data"
   type        = string
@@ -10,6 +20,11 @@ variable "ml_input_bucket" {
 
 variable "ml_output_bucket" {
   description = "S3 bucket name for ML output results"
+  type        = string
+}
+
+variable "ml_output_bucket_arn" {
+  description = "ARN of the S3 bucket for ML output results"
   type        = string
 }
 
@@ -28,27 +43,20 @@ variable "ml_python_job_definition_name" {
   type        = string
 }
 
-variable "ml_notebook_job_definition_name" {
-  description = "Name of the ML Notebook job definition"
+variable "cpu_job_queue_name" {
+  description = "Name of the CPU job queue"
   type        = string
 }
 
-variable "input_prefix" {
-  description = "S3 prefix filter for triggering jobs (e.g., 'jobs/')"
+variable "ml_python_cpu_job_definition_name" {
+  description = "Name of the ML Python CPU job definition"
   type        = string
-  default     = ""
 }
 
 variable "enable_notifications" {
   description = "Enable SNS notifications for job status"
   type        = bool
   default     = false
-}
-
-variable "sns_topic_arn" {
-  description = "SNS topic ARN for notifications"
-  type        = string
-  default     = ""
 }
 
 variable "enable_job_monitoring" {
@@ -63,10 +71,34 @@ variable "log_retention_days" {
   default     = 7
 }
 
-variable "default_vcpus" {
-  description = "Default vCPUs override for jobs"
+variable "default_gpu_vcpus" {
+  description = "Default vCPUs for GPU jobs"
   type        = number
   default     = 4
+}
+
+variable "default_gpu_memory" {
+  description = "Default memory (MiB) for GPU jobs"
+  type        = number
+  default     = 16384
+}
+
+variable "default_gpu_gpus" {
+  description = "Default GPUs for GPU jobs"
+  type        = number
+  default     = 1
+}
+
+variable "default_cpu_vcpus" {
+  description = "Default vCPUs for CPU jobs"
+  type        = number
+  default     = 2
+}
+
+variable "default_cpu_memory" {
+  description = "Default memory (MiB) for CPU jobs"
+  type        = number
+  default     = 4096
 }
 
 variable "default_memory" {

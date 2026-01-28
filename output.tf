@@ -1,9 +1,52 @@
 ###############################################################
+# VPC and Networking Outputs                                  #
+###############################################################
+
+output "vpc_id" {
+  description = "ID of the VPC"
+  value       = module.vpc.vpc_id
+}
+
+output "public_subnet_ids" {
+  description = "List of public subnet IDs"
+  value       = module.vpc.public_subnet_ids
+}
+
+output "internet_gateway_id" {
+  description = "ID of the Internet Gateway"
+  value       = module.vpc.internet_gateway_id
+}
+
+###############################################################
+# SNS Topics for ML Pipeline Events                           #
+###############################################################
+
+output "trigger_events_topic_arn" {
+  description = "SNS topic ARN for ML job triggers"
+  value       = module.sns.trigger_events_topic_arn
+}
+
+output "trigger_events_topic_name" {
+  description = "SNS topic name for ML job triggers"
+  value       = module.sns.trigger_events_topic_name
+}
+
+output "notifications_topic_arn" {
+  description = "SNS topic ARN for ML job notifications"
+  value       = module.sns.notifications_topic_arn
+}
+
+output "notifications_topic_name" {
+  description = "SNS topic name for ML job notifications"
+  value       = module.sns.notifications_topic_name
+}
+
+###############################################################
 # S3 Bucket Outputs                                           #
 ###############################################################
 
 output "ml_input_bucket" {
-  description = "S3 bucket for ML input (scripts/notebooks)"
+  description = "S3 bucket for ML input (scripts)"
   value       = module.s3.ml_input_bucket_name
 }
 
@@ -61,28 +104,23 @@ output "ml_python_job_definition_arn" {
   value       = module.batch.ml_python_job_definition_arn
 }
 
-output "ml_notebook_job_definition" {
-  description = "Batch job definition for Jupyter notebooks"
-  value       = module.batch.ml_notebook_job_definition_name
-}
-
-output "ml_notebook_job_definition_arn" {
-  description = "ARN of the Notebook job definition"
-  value       = module.batch.ml_notebook_job_definition_arn
-}
-
 ###############################################################
-# Lambda Function Outputs                                      #
+# Lambda Function and Event Outputs                            #
 ###############################################################
 
-output "lambda_trigger_function" {
-  description = "Lambda function that triggers ML jobs"
-  value       = module.lambda.lambda_function_name
+output "trigger_dispatcher_function" {
+  description = "Lambda function that dispatches trigger events"
+  value       = module.lambda.trigger_dispatcher_name
 }
 
-output "lambda_trigger_function_arn" {
-  description = "ARN of the Lambda trigger function"
-  value       = module.lambda.lambda_function_arn
+output "trigger_dispatcher_function_arn" {
+  description = "ARN of the trigger dispatcher Lambda function"
+  value       = module.lambda.trigger_dispatcher_arn
+}
+
+output "trigger_dlq_url" {
+  description = "URL of the SQS dead letter queue for failed triggers"
+  value       = module.lambda.trigger_dlq_url
 }
 
 output "lambda_monitor_function" {
@@ -125,9 +163,9 @@ output "lambda_execution_role_arn" {
 output "quick_start_commands" {
   description = "Quick start commands for using the ML pipeline"
   value = {
-    upload_script   = "aws s3 cp script.py s3://${module.s3.ml_input_bucket_name}/jobs/"
-    upload_notebook = "aws s3 cp notebook.ipynb s3://${module.s3.ml_input_bucket_name}/notebooks/"
-    view_logs       = "aws logs tail /aws/batch/${var.project_name}-ml-jobs --follow"
+    publish_trigger = "aws sns publish --topic-arn '${module.lambda.trigger_events_topic_arn}' --message '{\"trigger_type\": \"batch_job\", \"data\": {\"script_key\": \"jobs/train.py\"}, \"metadata\": {\"user\": \"data-scientist\"}}'  "
+    view_logs       = "aws logs tail /aws/lambda/${var.project_name}-ml-trigger-dispatcher --follow"
+    check_dlq       = "aws sqs receive-message --queue-url '${module.lambda.trigger_dlq_url}'"
     download_results = "aws s3 sync s3://${module.s3.ml_output_bucket_name}/results/ ./results/"
   }
 }

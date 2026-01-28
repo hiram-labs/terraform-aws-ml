@@ -1,5 +1,5 @@
 ###############################################################
-# S3 Bucket for ML Input (Scripts & Notebooks)                #
+# S3 Bucket for ML Input (Scripts)                            #
 ###############################################################
 resource "aws_s3_bucket" "ml_input_bucket" {
   bucket        = "${var.project_name}-ml-input"
