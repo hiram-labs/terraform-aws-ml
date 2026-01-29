@@ -36,7 +36,7 @@ export AWS_REGION="us-east-1"
 
 aws s3 mb s3://${PROJECT_NAME}-terraform-state --region $AWS_REGION
 aws s3api put-bucket-versioning --bucket ${PROJECT_NAME}-terraform-state \
-  --versioning-configuration Status=Enabled
+  --versioning-configuration Status=Enabled --region $AWS_REGION
 
 aws dynamodb create-table --table-name ${PROJECT_NAME}-terraform-lock \
   --attribute-definitions AttributeName=LockID,AttributeType=S \
@@ -110,20 +110,63 @@ terraform apply
 
 Check your email for an SNS subscription confirmation from AWS and click the confirmation link to activate job notifications.
 
+## EC2 GPU Quotas (Required for GPU Jobs)
+
+AWS Batch can only launch GPU instances if your account has enough EC2 vCPU quota for the GPU instance family in the target region.
+
+**Important:** Quota increases cannot be managed by Terraform. You must request them via AWS Service Quotas (console) or the AWS CLI.
+
+### Request via Console
+1. Open **Service Quotas → AWS services → Amazon Elastic Compute Cloud (Amazon EC2)**.
+2. Search for the relevant quota:
+   - **Running On-Demand G and VT instances** (for g4dn/g5 on-demand)
+   - **All G and VT Spot Instances** (for g4dn/g5 spot)
+3. Click **Request quota increase** and submit the desired vCPU limit.
+
+### Request via CLI
+Use the AWS CLI to look up the quota code and request an increase:
+
+```bash
+# List EC2 quotas and find the quota code for G/VT On-Demand or Spot
+aws service-quotas list-service-quotas --service-code ec2 --region "$AWS_REGION" \
+  --query 'Quotas[?contains(QuotaName, `G and VT`)].{Name:QuotaName,Code:QuotaCode,Value:Value}'
+
+# Request both On-Demand and Spot GPU quotas with a fixed desired vCPU value
+DESIRED_VALUE=256
+
+# Hardcoded quota codes (these are the same across all AWS accounts)
+ON_DEMAND_QUOTA_CODE="L-DB2E81BA"  # Running On-Demand G and VT instances
+SPOT_QUOTA_CODE="L-3819A6DF"       # All G and VT Spot Instance Requests
+
+aws service-quotas request-service-quota-increase \
+  --service-code ec2 \
+  --quota-code "$ON_DEMAND_QUOTA_CODE" \
+  --desired-value "$DESIRED_VALUE" \
+  --region "$AWS_REGION"
+
+aws service-quotas request-service-quota-increase \
+  --service-code ec2 \
+  --quota-code "$SPOT_QUOTA_CODE" \
+  --desired-value "$DESIRED_VALUE" \
+  --region "$AWS_REGION"
+```
+
+Once approved, AWS Batch will be able to launch GPU instances and your jobs will move from `RUNNABLE` to `STARTING`/`RUNNING`.
+
 ## Configuration
 
 Customize defaults and settings in `terraform.tfvars`:
 
 **GPU Defaults:**
-- `ml_gpu_job_vcpus` - Default vCPUs for GPU jobs (e.g., 4)
-- `ml_gpu_job_memory` - Default memory in MB (e.g., 16384)
-- `ml_gpu_job_gpus` - Default GPU count (e.g., 1)
-- `ml_gpu_use_spot_instances` - Use spot instances for 70% savings (true/false)
+- `ml_gpu_job_vcpus` - Default vCPUs for GPU jobs (default: 4)
+- `ml_gpu_job_memory` - Default memory in MB (default: 16384)
+- `ml_gpu_job_gpus` - Default GPU count (default: 1)
+- `ml_gpu_use_spot_instances` - Use spot instances (default: true)
 
 **CPU Defaults:**
-- `ml_cpu_job_vcpus` - Default vCPUs for CPU jobs (e.g., 2)
-- `ml_cpu_job_memory` - Default memory in MB (e.g., 4096)
-- `ml_cpu_use_spot_instances` - Use spot instances (true/false)
+- `ml_cpu_job_vcpus` - Default vCPUs for CPU jobs (default: 2)
+- `ml_cpu_job_memory` - Default memory in MB (default: 4096)
+- `ml_cpu_use_spot_instances` - Use spot instances (default: true)
 
 **Notifications:**
 - `notification_emails` - List of emails for job status alerts
@@ -177,7 +220,7 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
     "user": "ml-engineer",
     "project": "model-training"
   }
-}'
+}' --region "$AWS_REGION"
 ```
 
 ### GPU Job (Custom Resources)
@@ -197,7 +240,7 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
     "user": "ml-engineer",
     "project": "model-training"
   }
-}'
+}' --region "$AWS_REGION"
 ```
 
 ### CPU Job (Default Resources)
