@@ -287,11 +287,11 @@ resource "aws_batch_compute_environment" "gpu_compute_env" {
 }
 
 ###############################################################
-# Spot Fleet IAM Role (Conditional)                           #
+# Spot Fleet IAM Role - GPU (Conditional)                     #
 ###############################################################
 resource "aws_iam_role" "spot_fleet_role" {
   count = var.use_spot_instances ? 1 : 0
-  name  = "${var.project_name}-batch-spot-fleet-role"
+  name  = "${var.project_name}-batch-spot-fleet-role-gpu"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -312,6 +312,35 @@ resource "aws_iam_role" "spot_fleet_role" {
 resource "aws_iam_role_policy_attachment" "spot_fleet_policy" {
   count      = var.use_spot_instances ? 1 : 0
   role       = aws_iam_role.spot_fleet_role[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole"
+}
+
+###############################################################
+# Spot Fleet IAM Role - CPU (Conditional)                     #
+###############################################################
+resource "aws_iam_role" "spot_fleet_role_cpu" {
+  count = var.cpu_use_spot_instances ? 1 : 0
+  name  = "${var.project_name}-batch-spot-fleet-role-cpu"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "spotfleet.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = var.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "spot_fleet_policy_cpu" {
+  count      = var.cpu_use_spot_instances ? 1 : 0
+  role       = aws_iam_role.spot_fleet_role_cpu[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2SpotFleetTaggingRole"
 }
 
@@ -503,7 +532,7 @@ resource "aws_batch_compute_environment" "cpu_compute_env" {
       image_type = "ECS_AL2"
     }
 
-    spot_iam_fleet_role = var.cpu_use_spot_instances ? aws_iam_role.spot_fleet_role[0].arn : null
+    spot_iam_fleet_role = var.cpu_use_spot_instances ? aws_iam_role.spot_fleet_role_cpu[0].arn : null
     bid_percentage      = var.cpu_use_spot_instances ? var.spot_bid_percentage : null
 
     tags = merge(
