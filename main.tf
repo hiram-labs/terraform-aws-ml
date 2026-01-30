@@ -16,7 +16,7 @@ provider "aws" {
 
 module "vpc" {
   source = "./modules/vpc"
-  
+
   project_name       = var.project_name
   vpc_cidr           = var.vpc_cidr
   availability_zones = local.availability_zones
@@ -29,7 +29,7 @@ module "vpc" {
 
 module "sns" {
   source = "./modules/sns"
-  
+
   project_name        = var.project_name
   notification_emails = var.notification_emails
   common_tags         = local.common_tags
@@ -41,7 +41,7 @@ module "sns" {
 
 module "s3" {
   source = "./modules/s3"
-  
+
   project_name         = var.project_name
   force_destroy        = var.force_destroy_buckets
   input_retention_days = var.ml_input_retention_days
@@ -55,31 +55,31 @@ module "s3" {
 
 module "batch" {
   source = "./modules/batch"
-  
-  project_name             = var.project_name
-  aws_region        = var.aws_region
-  vpc_id            = module.vpc.vpc_id
-  private_subnets   = module.vpc.public_subnet_ids
-  ml_input_bucket   = module.s3.ml_input_bucket_name
-  ml_output_bucket  = module.s3.ml_output_bucket_name
-  ml_container_image = var.ml_container_image
-  gpu_instance_types = var.ml_gpu_instance_types
-  use_spot_instances       = var.ml_gpu_use_spot_instances
-  min_vcpus                = var.ml_gpu_min_vcpus
-  max_vcpus                = var.ml_gpu_max_vcpus
-  desired_vcpus            = var.ml_gpu_desired_vcpus
-  job_vcpus                = var.ml_gpu_job_vcpus
-  job_memory               = var.ml_gpu_job_memory
-  job_gpus                 = var.ml_gpu_job_gpus
-  cpu_instance_types       = var.ml_cpu_instance_types
-  cpu_use_spot_instances   = var.ml_cpu_use_spot_instances
-  cpu_min_vcpus            = var.ml_cpu_min_vcpus
-  cpu_max_vcpus            = var.ml_cpu_max_vcpus
-  cpu_desired_vcpus        = var.ml_cpu_desired_vcpus
-  cpu_job_vcpus            = var.ml_cpu_job_vcpus
-  cpu_job_memory           = var.ml_cpu_job_memory
-  log_retention_days       = var.log_retention_days
-  common_tags              = local.common_tags
+
+  project_name           = var.project_name
+  aws_region             = var.aws_region
+  vpc_id                 = module.vpc.vpc_id
+  private_subnets        = module.vpc.public_subnet_ids
+  ml_input_bucket        = module.s3.ml_input_bucket_name
+  ml_output_bucket       = module.s3.ml_output_bucket_name
+  ml_container_image     = var.ml_container_image
+  gpu_instance_types     = var.ml_gpu_instance_types
+  use_spot_instances     = var.ml_gpu_use_spot_instances
+  min_vcpus              = var.ml_gpu_min_vcpus
+  max_vcpus              = var.ml_gpu_max_vcpus
+  desired_vcpus          = var.ml_gpu_desired_vcpus
+  job_vcpus              = var.ml_gpu_job_vcpus
+  job_memory             = var.ml_gpu_job_memory
+  job_gpus               = var.ml_gpu_job_gpus
+  cpu_instance_types     = var.ml_cpu_instance_types
+  cpu_use_spot_instances = var.ml_cpu_use_spot_instances
+  cpu_min_vcpus          = var.ml_cpu_min_vcpus
+  cpu_max_vcpus          = var.ml_cpu_max_vcpus
+  cpu_desired_vcpus      = var.ml_cpu_desired_vcpus
+  cpu_job_vcpus          = var.ml_cpu_job_vcpus
+  cpu_job_memory         = var.ml_cpu_job_memory
+  log_retention_days     = var.log_retention_days
+  common_tags            = local.common_tags
 }
 
 ###############################################################
@@ -88,7 +88,7 @@ module "batch" {
 
 module "lambda" {
   source = "./modules/lambda"
-  
+
   project_name                      = var.project_name
   trigger_events_topic_arn          = module.sns.trigger_events_topic_arn
   notifications_topic_arn           = module.sns.notifications_topic_arn
