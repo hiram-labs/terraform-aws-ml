@@ -94,6 +94,53 @@
         grid-template-columns: 1fr 1fr;
         gap: 0.6rem;
       }
+      #output-container {
+        position: relative;
+      }
+      #output-container.fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+        border-radius: 0;
+      }
+      #output-container.fullscreen .card {
+        border-radius: 0;
+        height: 100%;
+      }
+      #output-container.fullscreen #output {
+        height: calc(100vh - 120px) !important;
+      }
+      .output-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .output-header button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+      }
+      #history-container-wrapper {
+        position: relative;
+      }
+      #history-container-wrapper.fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+        border-radius: 0;
+      }
+      #history-container-wrapper.fullscreen #history-container {
+        height: calc(100vh - 120px) !important;
+      }
     </style>
   </head>
   <body class="bg-light">
@@ -171,14 +218,20 @@
       <hr class="my-4">
 
       <div class="row">
-        <div class="col-md-6">
-          <h5>Preview / Response</h5>
+        <div class="col-md-6" id="output-container">
+          <div class="output-header d-flex justify-content-between align-items-center mb-2">
+            <h5>Preview / Response</h5>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="expand-output-btn" title="Fullscreen">⛶</button>
+          </div>
           <pre id="output" class="p-3 bg-white border rounded" style="height:300px; overflow:auto;"></pre>
         </div>
-        <div class="col-md-6">
-          <h5>Job History</h5>
+        <div class="col-md-6" id="history-container-wrapper">
+          <div class="output-header d-flex justify-content-between align-items-center mb-2">
+            <h5>Job History</h5>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="expand-history-btn" title="Fullscreen">⛶</button>
+          </div>
           <div id="history-container" class="p-3 bg-white border rounded" style="height:300px; overflow:auto;">
-            <p class="text-muted">Click "Show History" to load recent jobs...</p>
+            <p class="text-muted">Loading history...</p>
           </div>
         </div>
       </div>
@@ -200,16 +253,18 @@
         try {
           const resp = await fetch('/history');
           const json = await resp.json();
-          const history = json.history || [];
+          let history = json.history || [];
           
           if (history.length === 0) {
             document.getElementById('history-container').innerHTML = '<p class="text-muted">No jobs found in history.</p>';
             return;
           }
           
+          // Sort by timestamp, latest first
+          history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          
           let html = '<div class="list-group list-group-flush">';
-          history.reverse().forEach((job, index) => {
-            const originalIndex = history.length - 1 - index;
+          history.forEach((job, index) => {
             const timestamp = new Date(job.timestamp).toLocaleString();
             
             // Smart field selection: use form_data for original inputs, payload for derived values
@@ -239,6 +294,7 @@
                   </div>
                   <div class="history-badge-group">
                     ${statusBadge}
+                    <button class="badge bg-info border-0" type="button" data-logs-timestamp="${job.timestamp}">Logs</button>
                     <button class="badge bg-danger border-0" type="button" data-history-index="${originalIndex}">Delete</button>
                   </div>
                 </div>
@@ -279,6 +335,13 @@
               await deleteHistoryEntry(index);
             });
           });
+
+          document.querySelectorAll('[data-logs-timestamp]').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+              const timestamp = e.currentTarget.getAttribute('data-logs-timestamp');
+              await tailLogs(timestamp);
+            });
+          });
         } catch (error) {
           document.getElementById('history-container').innerHTML = '<p class="text-danger">Error loading history: ' + error.message + '</p>';
         }
@@ -300,8 +363,60 @@
         }
       }
 
+      async function tailLogs(timestamp) {
+        try {
+          const form = new URLSearchParams({ timestamp });
+          const resp = await fetch('/logs/tail', { method: 'POST', body: form });
+          const json = await resp.json();
+          
+          if (json.error) {
+            document.getElementById('output').textContent = JSON.stringify({ error: json.error }, null, 2);
+          } else {
+            const logs = json.logs || [];
+            const formatted = logs.length > 0 
+              ? logs.join('\n')
+              : json.message || 'No logs found';
+            document.getElementById('output').textContent = formatted;
+          }
+        } catch (error) {
+          document.getElementById('output').textContent = JSON.stringify({ error: error.message }, null, 2);
+        }
+      }
+
       document.getElementById('preview-btn').addEventListener('click', (e)=> postForm('/preview'));
       document.getElementById('publish-btn').addEventListener('click', (e)=> postForm('/publish'));
+      
+      document.getElementById('expand-output-btn').addEventListener('click', (e) => {
+        const container = document.getElementById('output-container');
+        container.classList.toggle('fullscreen');
+        const btn = e.currentTarget;
+        btn.textContent = container.classList.contains('fullscreen') ? '⛶ (Press Esc)' : '⛶';
+      });
+      
+      document.getElementById('expand-history-btn').addEventListener('click', (e) => {
+        const container = document.getElementById('history-container-wrapper');
+        container.classList.toggle('fullscreen');
+        const btn = e.currentTarget;
+        btn.textContent = container.classList.contains('fullscreen') ? '⛶ (Press Esc)' : '⛶';
+      });
+      
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const outputContainer = document.getElementById('output-container');
+          const historyContainer = document.getElementById('history-container-wrapper');
+          
+          if (outputContainer.classList.contains('fullscreen')) {
+            outputContainer.classList.remove('fullscreen');
+            document.getElementById('expand-output-btn').textContent = '⛶';
+          }
+          
+          if (historyContainer.classList.contains('fullscreen')) {
+            historyContainer.classList.remove('fullscreen');
+            document.getElementById('expand-history-btn').textContent = '⛶';
+          }
+        }
+      });
+      
       loadHistory();
     </script>
   </body>
