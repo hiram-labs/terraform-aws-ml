@@ -7,6 +7,7 @@ import os
 import json
 import boto3
 from dotenv import load_dotenv
+from datetime import timedelta
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
@@ -223,6 +224,35 @@ async def delete_history_entry(index: int = Form(...)):
     history.pop(index)
     save_history(history)
     return JSONResponse({"status": "ok"})
+
+
+@app.post("/logs/tail", response_class=JSONResponse)
+async def tail_logs(timestamp: str = Form(...)):
+    """Fetch recent job logs from CloudWatch"""
+    try:
+        logs_client = boto3.client('logs')
+        log_group = f"/aws/batch/{PROJECT_NAME}-ml-jobs"
+        
+        # Parse timestamp and look for logs around that time
+        job_time = datetime.fromisoformat(timestamp)
+        start_time = int((job_time - timedelta(minutes=5)).timestamp() * 1000)
+        end_time = int((job_time + timedelta(minutes=30)).timestamp() * 1000)
+        
+        # Fetch log streams and events
+        try:
+            response = logs_client.filter_log_events(
+                logGroupName=log_group,
+                startTime=start_time,
+                endTime=end_time,
+                limit=100,
+                interleaved=True
+            )
+            events = response.get('events', [])
+            return JSONResponse({"logs": [e['message'] for e in events]})
+        except logs_client.exceptions.ResourceNotFoundException:
+            return JSONResponse({"logs": [], "message": "Log group not found"})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 if __name__ == '__main__':
