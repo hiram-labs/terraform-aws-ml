@@ -89,7 +89,7 @@ resource "aws_iam_role" "batch_job_role" {
   tags = var.common_tags
 }
 
-# Policy for S3 access (read inputs, write outputs)
+# Policy for S3 access (read inputs, write outputs, read models)
 resource "aws_iam_role_policy" "batch_job_s3_policy" {
   name = "${var.project_name}-batch-job-s3-policy"
   role = aws_iam_role.batch_job_role.id
@@ -108,8 +108,10 @@ resource "aws_iam_role_policy" "batch_job_s3_policy" {
         Resource = [
           "arn:aws:s3:::${var.ml_input_bucket}/*",
           "arn:aws:s3:::${var.ml_output_bucket}/*",
+          "arn:aws:s3:::${var.ml_models_bucket}/*",
           "arn:aws:s3:::${var.ml_input_bucket}",
-          "arn:aws:s3:::${var.ml_output_bucket}"
+          "arn:aws:s3:::${var.ml_output_bucket}",
+          "arn:aws:s3:::${var.ml_models_bucket}"
         ]
       }
     ]
