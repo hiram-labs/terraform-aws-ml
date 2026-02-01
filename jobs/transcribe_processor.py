@@ -7,7 +7,7 @@ Downloads audio from S3, loads pre-downloaded models from S3, runs transcribe an
 speaker identification, saves results.
 
 Supported Operations:
-- transcribe: Convert audio to text with speaker labels (high-speed, speaker-aware)
+- transcribe_audio: Convert audio to text with speaker labels (high-speed, speaker-aware)
 
 To add new operations:
   1. Create a class inheriting from TranscribeOperation
@@ -20,7 +20,7 @@ SNS Trigger Format:
   "data": {
     "script_key": "jobs/transcribe_processor.py",
     "compute_type": "gpu",
-    "operation": "transcribe",
+    "operation": "transcribe_audio",
     "input_key": "audio/input.wav",
     "output_key": "transcribe/output.json",
     "args": {
@@ -230,7 +230,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
 
 # Registry of available operations
 OPERATIONS: Dict[str, type] = {
-    'transcribe': TranscribeWithDiarizationOperation,
+    'transcribe_audio': TranscribeWithDiarizationOperation,
 }
 
 
@@ -292,7 +292,7 @@ class TranscribeProcessor:
     def __init__(self, job_def: Dict):
         self.job_def = job_def
         self.data = job_def.get('data', {})
-        self.operation_type = self.data.get('operation', 'transcribe')
+        self.operation_type = self.data.get('operation', 'transcribe_audio')
         self.input_key = self.data.get('input_key')
         self.output_key = self.data.get('output_key')
         self.args = self.data.get('args', {})
