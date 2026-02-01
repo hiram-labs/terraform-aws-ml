@@ -31,7 +31,12 @@ if [ -n "${INPUT_KEY}" ]; then
         aws s3 cp "s3://${INPUT_BUCKET}/${INPUT_KEY}" /workspace/script.py
         
         echo "Executing Python script..."
-        python3 /workspace/script.py
+        # Pass SNS_MESSAGE to script via stdin
+        if [ -n "${SNS_MESSAGE}" ]; then
+            echo "${SNS_MESSAGE}" | python3 /workspace/script.py
+        else
+            python3 /workspace/script.py
+        fi
     else
         echo "Error: Only Python scripts (.py) are supported. Received: ${INPUT_KEY}"
         exit 1

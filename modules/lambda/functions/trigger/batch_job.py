@@ -217,6 +217,7 @@ class BatchJobTrigger(BaseTrigger):
                 'TRIGGER_PROJECT': self.get_metadata('project', 'unknown'),
                 'TRIGGER_EXPERIMENT': self.get_metadata('experiment', ''),
                 'COMPUTE_TYPE': compute_type,
+                'SNS_MESSAGE': json.dumps(self.message),  # Full SNS payload for job script stdin
             }
             
             # Merge additional environment variables
