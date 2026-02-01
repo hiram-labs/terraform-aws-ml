@@ -3,10 +3,11 @@
 Trigger jobs by publishing messages to an SNS topic.
 
 Usage:
-    python trigger_jobs.py --topic-arn arn:aws:sns:us-east-1:123456789012:my-topic --message '{"job": "transcript_processor"}'
+    python trigger_jobs.py --topic-arn <SNS_TOPIC_ARN> --data '{"input_key": "path/to/input.mp4"}'
+    python trigger_jobs.py --preset extract-audio --data '{"input_key": "path/to/input.mp4"}'
 
 Environment Variables:
-    AWS_PROFILE, AWS_REGION (optional)
+    TRIGGER_EVENTS_TOPIC_ARN, AWS_PROFILE, AWS_REGION (optional)
 """
 import os
 import argparse
