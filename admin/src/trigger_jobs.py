@@ -30,6 +30,9 @@ def parse_arguments():
     parser.add_argument('--data', help='Path to JSON file or JSON string for the SNS message data field')
     parser.add_argument('--preset', choices=['extract-audio', 'transcribe-audio'], help='Use a preset job payload (extends --data)')
     parser.add_argument('--trigger-type', default='batch_job', help='Override trigger_type (default: batch_job)')
+    parser.add_argument('--input-bucket', help='S3 bucket for input data')
+    parser.add_argument('--output-bucket', help='S3 bucket for output results')
+    parser.add_argument('--model-bucket', help='S3 bucket for ML models')
     parser.add_argument('--user', default='orchestrator', help='Override metadata.user')
     parser.add_argument('--project', default='ml-pipeline', help='Override metadata.project')
     parser.add_argument('--region', default=os.getenv('AWS_REGION', 'us-east-1'), help='AWS region')
@@ -111,6 +114,13 @@ def main():
             "project": args.project
         }
     }
+    # Add bucket info to payload if provided
+    if args.input_bucket:
+        payload["input_bucket"] = args.input_bucket
+    if args.output_bucket:
+        payload["output_bucket"] = args.output_bucket
+    if args.model_bucket:
+        payload["model_bucket"] = args.model_bucket
     logger.info(f"Publishing job trigger to SNS topic: {args.topic_arn}")
     logger.info(f"Payload: {json.dumps(payload)}")
     response = sns_client.publish(
