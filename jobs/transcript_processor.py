@@ -40,6 +40,7 @@ import sys
 import json
 import boto3
 import torch
+import zipfile
 from faster_whisper import WhisperModel
 from pyannote.audio import Pipeline
 from datetime import datetime
@@ -125,41 +126,37 @@ class TranscribeOperation(TranscriptionOperation):
         return 'cuda' if device.type == 'cuda' else 'cpu'
     
     def _download_model_from_s3(self, tmpdir: str, model_name: str, model_type: str) -> str:
-        """Download model from S3 path to local cache directory"""
-        bucket = INPUT_BUCKET  # Assuming models are in the same input bucket
-        prefix = f"models/{model_type}/{model_name.replace('/', '-')}"
+        """Download and extract model from S3 zip to EFS cache"""
+        bucket = INPUT_BUCKET
+        model_key = model_name.replace('/', '-')
+        zip_key = f"models/{model_type}/{model_key}.zip"
+        efs_model_path = Path('/opt/models') / model_type / model_key
         
-        logger.info(f"Downloading {model_type} model '{model_name}' from s3://{bucket}/{prefix}")
-        
-        models_cache = Path(tmpdir) / 'models_cache' / model_type
-        models_cache.mkdir(parents=True, exist_ok=True)
-        
-        paginator = s3_client.get_paginator('list_objects_v2')
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-        
-        file_count = 0
-        for page in pages:
-            if 'Contents' not in page:
-                continue
+        if efs_model_path.exists():
+            logger.info(f"Model {model_name} already cached at {efs_model_path}")
+        else:
+            logger.info(f"Downloading {model_type} model '{model_name}' from s3://{bucket}/{zip_key}")
             
-            for obj in page['Contents']:
-                key = obj['Key']
-                relative_path = key[len(prefix):].lstrip('/')
-                if not relative_path:
-                    continue
-                    
-                local_path = models_cache / relative_path
-                local_path.parent.mkdir(parents=True, exist_ok=True)
-                
-                logger.debug(f"  Downloading: {key}")
-                s3_client.download_file(bucket, key, str(local_path))
-                file_count += 1
+            # Download zip
+            zip_local = Path(tmpdir) / f"{model_type}_{model_key}.zip"
+            s3_client.download_file(bucket, zip_key, str(zip_local))
+            
+            # Extract to EFS
+            efs_model_path.parent.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(zip_local, 'r') as zip_ref:
+                zip_ref.extractall(efs_model_path)
+            
+            zip_local.unlink()
+            logger.info(f"Extracted model to {efs_model_path}")
         
-        if file_count == 0:
-            raise RuntimeError(f"No {model_type} files found at s3://{bucket}/{prefix}")
+        # Find the snapshot directory
+        snapshots_dir = efs_model_path / 'snapshots'
+        if snapshots_dir.exists():
+            snapshot_dirs = list(snapshots_dir.iterdir())
+            if snapshot_dirs:
+                return str(snapshot_dirs[0])  # Assume only one
         
-        logger.info(f"✓ Downloaded {file_count} {model_type} files")
-        return str(models_cache)
+        raise RuntimeError(f"No snapshot directory found for {model_name}")
     
     def _transcribe_audio(self, audio_file: str, model_path: str, language: str = 'en', compute_type: str = 'cpu') -> List[Dict]:
         """Transcribe audio using Faster-Whisper with local model"""
