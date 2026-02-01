@@ -7,18 +7,18 @@ AWS Batch jobs or other cloud workflows. Works with any model from the HuggingFa
 
 Usage:
     # Whisper speech recognition models
-    python download_models.py --bucket my-models \
+    python src/download_models.py --bucket my-models \
         --model-type whisper \
         --model-names openai/whisper-tiny,openai/whisper-base,openai/whisper-small
     
     # Pyannote speaker diarization models (requires HuggingFace token)
-    python download_models.py --bucket my-models \
+    python src/download_models.py --bucket my-models \
         --model-type pyannote \
         --model-names pyannote/speaker-diarization-3.1,pyannote/segmentation-3.0 \
         --hf-token YOUR_TOKEN
     
     # Any other HuggingFace model
-    python download_models.py --bucket my-models \
+    python src/download_models.py --bucket my-models \
         --model-names bert-base-uncased,gpt2,facebook/bart-large
 
 Environment Variables:
@@ -220,5 +220,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# python download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-3.1
-# python download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names openai/whisper-small.en
+# python src/download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-3.1
+# python src/download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names openai/whisper-small.en
