@@ -2,17 +2,17 @@
 """
 Transcript Processor for AWS Batch
 
-Transcribes WAV audio with speaker diarization using Faster-Whisper and pyannote.
+Extensible framework for audio transcription with speaker diarization.
 Downloads audio from S3, loads pre-downloaded models from S3, runs transcription and 
 speaker identification, saves results.
 
 Supported Operations:
 - transcribe: Convert audio to text with speaker labels (high-speed, speaker-aware)
 
-Environment Variables:
-  - INPUT_BUCKET: S3 bucket with audio files
-  - OUTPUT_BUCKET: S3 bucket for transcription output
-  - COMPUTE_TYPE: gpu or cpu
+To add new operations:
+  1. Create a class inheriting from TranscriptionOperation
+  2. Implement process() method
+  3. Add to OPERATIONS registry
 
 SNS Trigger Format:
 {
@@ -21,13 +21,13 @@ SNS Trigger Format:
     "script_key": "jobs/transcript_processor.py",
     "compute_type": "gpu",
     "operation": "transcribe",
-    "input_key": "audio/output.wav",
+    "input_key": "audio/input.wav",
     "output_key": "transcriptions/output.json",
     "args": {
       "language": "en",
       "output_format": "json",
-      "whisper_model_s3_path": "s3://my-models-bucket/models/whisper-base",
-      "pyannote_model_s3_path": "s3://my-models-bucket/models/pyannote-diarization"
+      "whisper_model": "openai/whisper-small",
+      "pyannote_model": "pyannote/speaker-diarization-3.1"
     }
   }
 }
@@ -47,7 +47,9 @@ import tempfile
 import logging
 from typing import Dict, List
 from pathlib import Path
+from abc import ABC, abstractmethod
 
+# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -61,144 +63,178 @@ COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
 s3_client = boto3.client('s3')
 
 
-def get_device():
-    """Determine compute device"""
-    if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
-        device = torch.device('cuda')
-        logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
-    else:
-        device = torch.device('cpu')
-    logger.info(f"Device: {device}")
-    return device
+class TranscriptionOperation(ABC):
+    """Base class for transcription operations"""
+    
+    def __init__(self, args: Dict):
+        self.args = args
+    
+    @abstractmethod
+    def process(self, audio_file: str, tmpdir: str) -> Dict:
+        """Process audio file and return transcription results"""
+        pass
 
 
-def get_compute_type(device: torch.device) -> str:
-    """Get compute type for faster-whisper"""
-    return 'cuda' if device.type == 'cuda' else 'cpu'
-
-
-def parse_s3_path(s3_path: str) -> tuple:
-    """Parse S3 path into bucket and prefix"""
-    if not s3_path.startswith('s3://'):
-        raise ValueError(f"Invalid S3 path: {s3_path}")
+class TranscribeOperation(TranscriptionOperation):
+    """Transcribe audio with speaker diarization using Faster-Whisper and pyannote"""
     
-    path = s3_path[5:]
-    parts = path.split('/', 1)
-    bucket = parts[0]
-    prefix = parts[1] if len(parts) > 1 else ''
-    
-    return bucket, prefix
-
-
-def download_model_from_s3(tmpdir: str, s3_path: str, model_type: str) -> str:
-    """Download model from S3 path to local cache directory"""
-    if not s3_path:
-        raise ValueError(f"{model_type} S3 path not provided in args")
-    
-    bucket, prefix = parse_s3_path(s3_path)
-    logger.info(f"Downloading {model_type} from s3://{bucket}/{prefix}")
-    
-    models_cache = Path(tmpdir) / 'models_cache' / model_type
-    models_cache.mkdir(parents=True, exist_ok=True)
-    
-    paginator = s3_client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-    
-    file_count = 0
-    for page in pages:
-        if 'Contents' not in page:
-            continue
+    def process(self, audio_file: str, tmpdir: str) -> Dict:
+        language = self.args.get('language', 'en')
+        output_format = self.args.get('output_format', 'json')
+        whisper_model_name = self.args.get('whisper_model', 'openai/whisper-small')
+        pyannote_model_name = self.args.get('pyannote_model', 'pyannote/speaker-diarization-3.1')
         
-        for obj in page['Contents']:
-            key = obj['Key']
-            relative_path = key[len(prefix):].lstrip('/')
-            if not relative_path:
+        device = self._get_device()
+        compute_type = self._get_compute_type(device)
+        
+        logger.info("Downloading models from S3...")
+        whisper_model_path = self._download_model_from_s3(tmpdir, whisper_model_name, 'whisper')
+        pyannote_model_path = self._download_model_from_s3(tmpdir, pyannote_model_name, 'pyannote')
+        
+        logger.info("Starting transcription and speaker diarization...")
+        transcription = self._transcribe_audio(audio_file, whisper_model_path, language, compute_type)
+        speakers = self._diarize_audio(audio_file, pyannote_model_path)
+        
+        segments = self._align_transcription_with_speakers(transcription, speakers)
+        
+        num_speakers = len(set(s['speaker'] for s in segments if s['speaker'] != 'Unknown'))
+        
+        return {
+            'segments': segments,
+            'summary': {
+                'segments': len(segments),
+                'speakers': num_speakers,
+                'duration': segments[-1]['end'] if segments else 0,
+                'language': language,
+                'output_format': output_format
+            }
+        }
+    
+    def _get_device(self):
+        """Determine compute device"""
+        if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
+            device = torch.device('cuda')
+            logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
+        else:
+            device = torch.device('cpu')
+        logger.info(f"Device: {device}")
+        return device
+    
+    def _get_compute_type(self, device: torch.device) -> str:
+        """Get compute type for faster-whisper"""
+        return 'cuda' if device.type == 'cuda' else 'cpu'
+    
+    def _download_model_from_s3(self, tmpdir: str, model_name: str, model_type: str) -> str:
+        """Download model from S3 path to local cache directory"""
+        bucket = INPUT_BUCKET  # Assuming models are in the same input bucket
+        prefix = f"models/{model_type}/{model_name.replace('/', '-')}"
+        
+        logger.info(f"Downloading {model_type} model '{model_name}' from s3://{bucket}/{prefix}")
+        
+        models_cache = Path(tmpdir) / 'models_cache' / model_type
+        models_cache.mkdir(parents=True, exist_ok=True)
+        
+        paginator = s3_client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+        
+        file_count = 0
+        for page in pages:
+            if 'Contents' not in page:
                 continue
+            
+            for obj in page['Contents']:
+                key = obj['Key']
+                relative_path = key[len(prefix):].lstrip('/')
+                if not relative_path:
+                    continue
+                    
+                local_path = models_cache / relative_path
+                local_path.parent.mkdir(parents=True, exist_ok=True)
                 
-            local_path = models_cache / relative_path
-            local_path.parent.mkdir(parents=True, exist_ok=True)
+                logger.debug(f"  Downloading: {key}")
+                s3_client.download_file(bucket, key, str(local_path))
+                file_count += 1
+        
+        if file_count == 0:
+            raise RuntimeError(f"No {model_type} files found at s3://{bucket}/{prefix}")
+        
+        logger.info(f"✓ Downloaded {file_count} {model_type} files")
+        return str(models_cache)
+    
+    def _transcribe_audio(self, audio_file: str, model_path: str, language: str = 'en', compute_type: str = 'cpu') -> List[Dict]:
+        """Transcribe audio using Faster-Whisper with local model"""
+        logger.info(f"Loading Faster-Whisper model from: {model_path}")
+        model = WhisperModel(model_path, device=compute_type, local_files_only=True)
+        
+        logger.info(f"Transcribing audio: {audio_file}")
+        segments, info = model.transcribe(audio_file, language=language)
+        
+        result = []
+        for segment in segments:
+            result.append({
+                'start': segment.start,
+                'end': segment.end,
+                'text': segment.text.strip()
+            })
+        
+        logger.info(f"Transcription complete: {len(result)} segments")
+        return result
+    
+    def _diarize_audio(self, audio_file: str, model_path: str) -> List[Dict]:
+        """Identify speakers using pyannote model from S3"""
+        logger.info(f"Loading pyannote model from: {model_path}")
+        
+        pipeline = Pipeline.from_pretrained(model_path, use_auth_token=None)
+        
+        if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
+            pipeline = pipeline.to(torch.device('cuda'))
+        
+        logger.info("Running speaker diarization")
+        diarization = pipeline(audio_file)
+        
+        speakers = []
+        for turn, _, speaker in diarization.itertracks(yield_label=True):
+            speakers.append({
+                'start': turn.start,
+                'end': turn.end,
+                'speaker': speaker
+            })
+        
+        logger.info(f"Diarization complete: {len(set(s['speaker'] for s in speakers))} speakers detected")
+        return speakers
+    
+    def _align_transcription_with_speakers(self, transcription: List[Dict], speakers: List[Dict]) -> List[Dict]:
+        """Merge transcription segments with speaker labels"""
+        result = []
+        
+        for trans_seg in transcription:
+            trans_start = trans_seg['start']
+            trans_end = trans_seg['end']
             
-            logger.debug(f"  Downloading: {key}")
-            s3_client.download_file(bucket, key, str(local_path))
-            file_count += 1
-    
-    if file_count == 0:
-        raise RuntimeError(f"No {model_type} files found at s3://{bucket}/{prefix}")
-    
-    logger.info(f"✓ Downloaded {file_count} {model_type} files")
-    return str(models_cache)
-
-
-def transcribe_audio(audio_file: str, model_path: str, language: str = 'en', compute_type: str = 'cpu') -> List[Dict]:
-    """Transcribe audio using Faster-Whisper with local model"""
-    logger.info(f"Loading Faster-Whisper model from: {model_path}")
-    model = WhisperModel(model_path, device=compute_type, local_files_only=True)
-    
-    logger.info(f"Transcribing audio: {audio_file}")
-    segments, info = model.transcribe(audio_file, language=language)
-    
-    result = []
-    for segment in segments:
-        result.append({
-            'start': segment.start,
-            'end': segment.end,
-            'text': segment.text.strip()
-        })
-    
-    logger.info(f"Transcription complete: {len(result)} segments")
-    return result
-
-
-def diarize_audio(audio_file: str, model_path: str) -> List[Dict]:
-    """Identify speakers using pyannote model from S3"""
-    logger.info(f"Loading pyannote model from: {model_path}")
-    
-    pipeline = Pipeline.from_pretrained(model_path, use_auth_token=None)
-    
-    if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
-        pipeline = pipeline.to(torch.device('cuda'))
-    
-    logger.info("Running speaker diarization")
-    diarization = pipeline(audio_file)
-    
-    speakers = []
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
-        speakers.append({
-            'start': turn.start,
-            'end': turn.end,
-            'speaker': speaker
-        })
-    
-    logger.info(f"Diarization complete: {len(set(s['speaker'] for s in speakers))} speakers detected")
-    return speakers
-
-
-def align_transcription_with_speakers(transcription: List[Dict], speakers: List[Dict]) -> List[Dict]:
-    """Merge transcription segments with speaker labels"""
-    result = []
-    
-    for trans_seg in transcription:
-        trans_start = trans_seg['start']
-        trans_end = trans_seg['end']
-        
-        speaker_labels = set()
-        for speaker_seg in speakers:
-            spk_start = speaker_seg['start']
-            spk_end = speaker_seg['end']
+            speaker_labels = set()
+            for speaker_seg in speakers:
+                spk_start = speaker_seg['start']
+                spk_end = speaker_seg['end']
+                
+                if spk_start < trans_end and spk_end > trans_start:
+                    speaker_labels.add(speaker_seg['speaker'])
             
-            if spk_start < trans_end and spk_end > trans_start:
-                speaker_labels.add(speaker_seg['speaker'])
+            speaker = ', '.join(sorted(speaker_labels)) if speaker_labels else 'Unknown'
+            
+            result.append({
+                'start': trans_start,
+                'end': trans_end,
+                'speaker': speaker,
+                'text': trans_seg['text']
+            })
         
-        speaker = ', '.join(sorted(speaker_labels)) if speaker_labels else 'Unknown'
-        
-        result.append({
-            'start': trans_start,
-            'end': trans_end,
-            'speaker': speaker,
-            'text': trans_seg['text']
-        })
-    
-    return result
+        return result
+
+
+# Registry of available operations
+OPERATIONS: Dict[str, type] = {
+    'transcribe': TranscribeOperation,
+}
 
 
 def format_output(segments: List[Dict], output_format: str = 'json') -> str:
@@ -253,90 +289,91 @@ def format_timestamp_srt(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
+class TranscriptProcessor:
+    """Main processor for transcription jobs"""
+    
+    def __init__(self, job_def: Dict):
+        self.job_def = job_def
+        self.data = job_def.get('data', {})
+        self.operation_type = self.data.get('operation', 'transcribe')
+        self.input_key = self.data.get('input_key')
+        self.output_key = self.data.get('output_key')
+        self.args = self.data.get('args', {})
+    
+    def validate(self):
+        """Validate job configuration"""
+        if not self.input_key or not self.output_key:
+            raise ValueError("Missing input_key or output_key in job definition")
+        
+        if self.operation_type not in OPERATIONS:
+            raise ValueError(f"Unknown operation: {self.operation_type}")
+    
+    def process(self) -> Dict:
+        """Execute the transcription operation"""
+        try:
+            self.validate()
+            
+            logger.info(f"Job started at {datetime.now().isoformat()}")
+            logger.info(f"Operation: {self.operation_type}")
+            logger.info(f"Compute type: {COMPUTE_TYPE}")
+            logger.info(f"Input: s3://{INPUT_BUCKET}/{self.input_key}")
+            logger.info(f"Output: s3://{OUTPUT_BUCKET}/{self.output_key}")
+            
+            with tempfile.TemporaryDirectory() as tmpdir:
+                local_input = os.path.join(tmpdir, 'input_file')
+                local_output = os.path.join(tmpdir, 'output_file')
+                
+                logger.info("Downloading audio from S3...")
+                s3_client.download_file(INPUT_BUCKET, self.input_key, local_input)
+                logger.info("Audio downloaded successfully")
+                
+                operation_class = OPERATIONS[self.operation_type]
+                operation = operation_class(self.args)
+                result = operation.process(local_input, tmpdir)
+                
+                output_format = self.args.get('output_format', 'json')
+                output_text = format_output(result['segments'], output_format)
+                
+                with open(local_output, 'w') as f:
+                    f.write(output_text)
+                
+                logger.info("Uploading transcript to S3...")
+                s3_client.upload_file(local_output, OUTPUT_BUCKET, self.output_key)
+                logger.info("Transcript uploaded successfully")
+                
+                success_result = {
+                    'status': 'success',
+                    'operation': self.operation_type,
+                    'input_key': self.input_key,
+                    'output_key': self.output_key,
+                    'timestamp': datetime.now().isoformat(),
+                    'parameters': self.args,
+                    'summary': result['summary']
+                }
+                
+                logger.info(json.dumps(success_result, indent=2))
+                return success_result
+                
+        except Exception as e:
+            logger.error(f"Job failed: {str(e)}", exc_info=True)
+            error_result = {
+                'status': 'failed',
+                'operation': self.operation_type,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+            logger.error(json.dumps(error_result, indent=2))
+            raise
+
+
 def main():
     """Main execution function"""
     job_def = json.loads(sys.stdin.read())
-    data = job_def.get('data', {})
-    
-    input_key = data.get('input_key')
-    output_key = data.get('output_key')
-    args = data.get('args', {})
-    
-    if not input_key or not output_key:
-        logger.error("Missing input_key or output_key")
-        sys.exit(1)
-    
-    language = args.get('language', 'en')
-    output_format = args.get('output_format', 'json')
-    whisper_model_s3_path = args.get('whisper_model_s3_path')
-    pyannote_model_s3_path = args.get('pyannote_model_s3_path')
+    processor = TranscriptProcessor(job_def)
     
     try:
-        logger.info(f"Job started at {datetime.now().isoformat()}")
-        logger.info(f"Compute type: {COMPUTE_TYPE}")
-        logger.info(f"Input: s3://{INPUT_BUCKET}/{input_key}")
-        logger.info(f"Output: s3://{OUTPUT_BUCKET}/{output_key}")
-        
-        device = get_device()
-        compute_type = get_compute_type(device)
-        
-        with tempfile.TemporaryDirectory() as tmpdir:
-            local_input = os.path.join(tmpdir, 'input.wav')
-            local_output = os.path.join(tmpdir, f'output.{output_format}')
-            
-            logger.info("Downloading audio from S3...")
-            s3_client.download_file(INPUT_BUCKET, input_key, local_input)
-            logger.info("Audio downloaded successfully")
-            
-            logger.info("Downloading models from S3...")
-            whisper_model_path = download_model_from_s3(tmpdir, whisper_model_s3_path, 'whisper')
-            pyannote_model_path = download_model_from_s3(tmpdir, pyannote_model_s3_path, 'pyannote')
-            
-            logger.info("Starting transcription and speaker diarization...")
-            transcription = transcribe_audio(local_input, whisper_model_path, language, compute_type)
-            speakers = diarize_audio(local_input, pyannote_model_path)
-            
-            segments = align_transcription_with_speakers(transcription, speakers)
-            
-            output_text = format_output(segments, output_format)
-            
-            with open(local_output, 'w') as f:
-                f.write(output_text)
-            
-            logger.info("Uploading transcript to S3...")
-            s3_client.upload_file(local_output, OUTPUT_BUCKET, output_key)
-            logger.info("Transcript uploaded successfully")
-            
-            num_speakers = len(set(s['speaker'] for s in segments if s['speaker'] != 'Unknown'))
-            
-            success_result = {
-                'status': 'success',
-                'input_key': input_key,
-                'output_key': output_key,
-                'timestamp': datetime.now().isoformat(),
-                'parameters': {
-                    'language': language,
-                    'output_format': output_format,
-                    'whisper_model': whisper_model_s3_path,
-                    'pyannote_model': pyannote_model_s3_path
-                },
-                'summary': {
-                    'segments': len(segments),
-                    'speakers': num_speakers,
-                    'duration': segments[-1]['end'] if segments else 0
-                }
-            }
-            
-            logger.info(json.dumps(success_result, indent=2))
-            
-    except Exception as e:
-        logger.error(f"Job failed: {str(e)}", exc_info=True)
-        error_result = {
-            'status': 'failed',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }
-        logger.error(json.dumps(error_result, indent=2))
+        processor.process()
+    except Exception:
         sys.exit(1)
 
 
