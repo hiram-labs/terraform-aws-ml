@@ -37,6 +37,10 @@ def save_history(history):
     with open(HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=2, default=str)
 
+def clear_history():
+    """Clear job history file"""
+    save_history([])
+
 # Default topic ARN (optional) -- can be provided via UI
 DEFAULT_TOPIC_ARN = os.getenv("TRIGGER_EVENTS_TOPIC_ARN")
 
@@ -206,6 +210,19 @@ async def get_history():
     """Get job history"""
     history = load_history()
     return JSONResponse({"history": history})
+
+
+@app.post("/history/delete", response_class=JSONResponse)
+async def delete_history_entry(index: int = Form(...)):
+    """Delete a single history entry by index"""
+    history = load_history()
+
+    if index < 0 or index >= len(history):
+        return JSONResponse({"error": "Invalid history index"}, status_code=400)
+
+    history.pop(index)
+    save_history(history)
+    return JSONResponse({"status": "ok"})
 
 
 if __name__ == '__main__':
