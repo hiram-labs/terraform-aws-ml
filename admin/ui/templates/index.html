@@ -165,7 +165,6 @@
         <div class="d-flex gap-2">
           <button class="btn btn-secondary" type="button" id="preview-btn">Preview</button>
           <button class="btn btn-primary" type="button" id="publish-btn">Publish</button>
-          <button class="btn btn-info" type="button" id="history-btn">Show History</button>
         </div>
       </form>
 
@@ -210,6 +209,7 @@
           
           let html = '<div class="list-group list-group-flush">';
           history.reverse().forEach((job, index) => {
+            const originalIndex = history.length - 1 - index;
             const timestamp = new Date(job.timestamp).toLocaleString();
             
             // Smart field selection: use form_data for original inputs, payload for derived values
@@ -239,6 +239,7 @@
                   </div>
                   <div class="history-badge-group">
                     ${statusBadge}
+                    <button class="badge bg-danger border-0" type="button" data-history-index="${originalIndex}">Delete</button>
                   </div>
                 </div>
 
@@ -271,14 +272,37 @@
           html += '</div>';
           
           document.getElementById('history-container').innerHTML = html;
+
+          document.querySelectorAll('[data-history-index]').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+              const index = e.currentTarget.getAttribute('data-history-index');
+              await deleteHistoryEntry(index);
+            });
+          });
         } catch (error) {
           document.getElementById('history-container').innerHTML = '<p class="text-danger">Error loading history: ' + error.message + '</p>';
         }
       }
 
+      async function deleteHistoryEntry(index) {
+        if (!confirm('Delete this history entry?')) {
+          return;
+        }
+
+        try {
+          const form = new URLSearchParams({ index });
+          const resp = await fetch('/history/delete', { method: 'POST', body: form });
+          const json = await resp.json();
+          document.getElementById('output').textContent = JSON.stringify(json, null, 2);
+          await loadHistory();
+        } catch (error) {
+          document.getElementById('output').textContent = JSON.stringify({ error: error.message }, null, 2);
+        }
+      }
+
       document.getElementById('preview-btn').addEventListener('click', (e)=> postForm('/preview'));
       document.getElementById('publish-btn').addEventListener('click', (e)=> postForm('/publish'));
-      document.getElementById('history-btn').addEventListener('click', loadHistory);
+      loadHistory();
     </script>
   </body>
 </html>
