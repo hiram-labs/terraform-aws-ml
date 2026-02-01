@@ -85,7 +85,7 @@ class FFmpegOperation(ABC):
 
 
 class ExtractAudioOperation(FFmpegOperation):
-    """Extract audio from video with preprocessing for Whisper transcription"""
+    """Extract audio from video"""
     
     def build_command(self, input_file: str, output_file: str) -> List[str]:
         sample_rate = self.args.get('sample_rate', '16000')
