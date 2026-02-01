@@ -178,12 +178,6 @@ variable "ml_input_retention_days" {
   default     = 90
 }
 
-variable "enable_ml_models_bucket" {
-  type        = bool
-  description = "Create separate S3 bucket for trained models"
-  default     = true
-}
-
 ###############################################################
 # Monitoring & Notifications                                   #
 ###############################################################

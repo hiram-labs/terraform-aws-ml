@@ -20,10 +20,10 @@ output "ml_output_bucket_arn" {
 
 output "ml_models_bucket_name" {
   description = "Name of the ML models bucket"
-  value       = var.create_models_bucket ? aws_s3_bucket.ml_models_bucket[0].id : null
+  value       = aws_s3_bucket.ml_models_bucket.id
 }
 
 output "ml_models_bucket_arn" {
   description = "ARN of the ML models bucket"
-  value       = var.create_models_bucket ? aws_s3_bucket.ml_models_bucket[0].arn : null
+  value       = aws_s3_bucket.ml_models_bucket.arn
 }

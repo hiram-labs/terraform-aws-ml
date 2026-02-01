@@ -45,7 +45,6 @@ module "s3" {
   project_name         = var.project_name
   force_destroy        = var.force_destroy_buckets
   input_retention_days = var.ml_input_retention_days
-  create_models_bucket = var.enable_ml_models_bucket
   common_tags          = local.common_tags
 }
 
@@ -77,6 +76,7 @@ module "batch" {
   private_subnets        = module.vpc.public_subnet_ids
   ml_input_bucket        = module.s3.ml_input_bucket_name
   ml_output_bucket       = module.s3.ml_output_bucket_name
+  ml_models_bucket       = module.s3.ml_models_bucket_name
   ml_container_image     = var.ml_container_image
   gpu_instance_types     = var.ml_gpu_instance_types
   use_spot_instances     = var.ml_gpu_use_spot_instances

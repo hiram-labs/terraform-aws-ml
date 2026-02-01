@@ -15,12 +15,6 @@ variable "input_retention_days" {
   default     = 90
 }
 
-variable "create_models_bucket" {
-  description = "Create a separate bucket for trained models"
-  type        = bool
-  default     = true
-}
-
 variable "common_tags" {
   description = "Common tags for all resources"
   type        = map(string)

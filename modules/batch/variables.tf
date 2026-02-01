@@ -33,6 +33,11 @@ variable "ml_output_bucket" {
   type        = string
 }
 
+variable "ml_models_bucket" {
+  description = "S3 bucket name for ML models"
+  type        = string
+}
+
 variable "ml_container_image" {
   description = "ECR container image URI for ML Python jobs"
   type        = string

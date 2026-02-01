@@ -414,6 +414,10 @@ resource "aws_batch_job_definition" "ml_python_job" {
       {
         name  = "ML_OUTPUT_BUCKET"
         value = var.ml_output_bucket
+      },
+      {
+        name  = "ML_MODELS_BUCKET"
+        value = var.ml_models_bucket
       }
     ]
 
@@ -627,6 +631,10 @@ resource "aws_batch_job_definition" "ml_python_cpu_job" {
       {
         name  = "ML_OUTPUT_BUCKET"
         value = var.ml_output_bucket
+      },
+      {
+        name  = "ML_MODELS_BUCKET"
+        value = var.ml_models_bucket
       }
     ]
 

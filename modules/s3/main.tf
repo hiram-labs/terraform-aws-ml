@@ -108,10 +108,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "ml_output_lifecycle" {
 }
 
 ###############################################################
-# S3 Bucket for ML Models (Optional)                          #
+# S3 Bucket for ML Models                                     #
 ###############################################################
 resource "aws_s3_bucket" "ml_models_bucket" {
-  count         = var.create_models_bucket ? 1 : 0
   bucket        = "${var.project_name}-ml-models"
   force_destroy = var.force_destroy
 
@@ -125,8 +124,7 @@ resource "aws_s3_bucket" "ml_models_bucket" {
 }
 
 resource "aws_s3_bucket_versioning" "ml_models_versioning" {
-  count  = var.create_models_bucket ? 1 : 0
-  bucket = aws_s3_bucket.ml_models_bucket[0].id
+  bucket = aws_s3_bucket.ml_models_bucket.id
 
   versioning_configuration {
     status = "Enabled"
@@ -134,8 +132,7 @@ resource "aws_s3_bucket_versioning" "ml_models_versioning" {
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "ml_models_encryption" {
-  count  = var.create_models_bucket ? 1 : 0
-  bucket = aws_s3_bucket.ml_models_bucket[0].id
+  bucket = aws_s3_bucket.ml_models_bucket.id
 
   rule {
     apply_server_side_encryption_by_default {

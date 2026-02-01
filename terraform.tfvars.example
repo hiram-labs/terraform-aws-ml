@@ -75,9 +75,6 @@ force_destroy_buckets = true
 # Retention policy for input data (scripts)
 ml_input_retention_days = 90
 
-# Create separate S3 bucket for trained models
-enable_ml_models_bucket = true
-
 ###############################################################
 # MONITORING & NOTIFICATIONS                                  #
 ###############################################################
