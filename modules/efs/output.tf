@@ -8,7 +8,7 @@ output "efs_file_system_arn" {
   value       = aws_efs_file_system.model_cache.arn
 }
 
-output "efs_security_group_id" {
-  description = "Security group ID for EFS"
-  value       = aws_security_group.efs_sg.id
+output "efs_access_point_id" {
+  description = "EFS access point ID for model cache"
+  value       = aws_efs_access_point.model_cache.id
 }

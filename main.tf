@@ -73,6 +73,7 @@ module "batch" {
   aws_region             = var.aws_region
   vpc_id                 = module.vpc.vpc_id
   efs_file_system_id     = module.efs.efs_file_system_id
+  efs_access_point_id    = module.efs.efs_access_point_id
   private_subnets        = module.vpc.public_subnet_ids
   ml_input_bucket        = module.s3.ml_input_bucket_name
   ml_output_bucket       = module.s3.ml_output_bucket_name

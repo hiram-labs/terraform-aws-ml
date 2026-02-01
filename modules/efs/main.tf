@@ -18,6 +18,28 @@ resource "aws_efs_mount_target" "model_cache" {
   security_groups = [aws_security_group.efs_sg.id]
 }
 
+resource "aws_efs_access_point" "model_cache" {
+  file_system_id = aws_efs_file_system.model_cache.id
+
+  posix_user {
+    gid = 1000
+    uid = 1000
+  }
+
+  root_directory {
+    path = "/"
+    creation_info {
+      owner_gid   = 1000
+      owner_uid   = 1000
+      permissions = "755"
+    }
+  }
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-model-cache-access-point"
+  })
+}
+
 resource "aws_security_group" "efs_sg" {
   name_prefix = "${var.project_name}-efs-"
   vpc_id      = var.vpc_id

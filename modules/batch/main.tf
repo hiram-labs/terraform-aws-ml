@@ -465,7 +465,7 @@ resource "aws_batch_job_definition" "ml_python_job" {
         name = "model-cache"
         efsVolumeConfiguration = {
           fileSystemId      = var.efs_file_system_id
-          rootDirectory     = "/"
+          accessPointId     = var.efs_access_point_id
           transitEncryption = "ENABLED"
         }
       }
@@ -662,7 +662,7 @@ resource "aws_batch_job_definition" "ml_python_cpu_job" {
         name = "model-cache"
         efsVolumeConfiguration = {
           fileSystemId      = var.efs_file_system_id
-          rootDirectory     = "/"
+          accessPointId     = var.efs_access_point_id
           transitEncryption = "ENABLED"
         }
       }

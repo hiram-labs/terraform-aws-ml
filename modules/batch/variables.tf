@@ -18,6 +18,11 @@ variable "efs_file_system_id" {
   type        = string
 }
 
+variable "efs_access_point_id" {
+  description = "EFS access point ID for model cache"
+  type        = string
+}
+
 variable "private_subnets" {
   description = "Private subnet IDs for Batch compute instances"
   type        = list(string)
