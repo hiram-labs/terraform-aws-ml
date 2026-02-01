@@ -50,6 +50,20 @@ module "s3" {
 }
 
 ###############################################################
+# EFS for Model Caching                                       #
+###############################################################
+
+module "efs" {
+  source = "./modules/efs"
+
+  project_name       = var.project_name
+  vpc_id             = module.vpc.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  private_subnet_ids = module.vpc.public_subnet_ids
+  common_tags        = local.common_tags
+}
+
+###############################################################
 # AWS Batch GPU Compute Environment                           #
 ###############################################################
 
@@ -59,6 +73,7 @@ module "batch" {
   project_name           = var.project_name
   aws_region             = var.aws_region
   vpc_id                 = module.vpc.vpc_id
+  efs_file_system_id     = module.efs.efs_file_system_id
   private_subnets        = module.vpc.public_subnet_ids
   ml_input_bucket        = module.s3.ml_input_bucket_name
   ml_output_bucket       = module.s3.ml_output_bucket_name
