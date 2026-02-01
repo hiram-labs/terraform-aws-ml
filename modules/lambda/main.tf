@@ -130,20 +130,20 @@ resource "aws_lambda_function" "trigger_dispatcher" {
 
   environment {
     variables = {
-      BATCH_JOB_QUEUE          = var.batch_job_queue_name
-      ML_PYTHON_JOB_DEFINITION = var.ml_python_job_definition_name
-      CPU_JOB_QUEUE            = var.cpu_job_queue_name
+      BATCH_JOB_QUEUE              = var.batch_job_queue_name
+      ML_PYTHON_JOB_DEFINITION     = var.ml_python_job_definition_name
+      CPU_JOB_QUEUE                = var.cpu_job_queue_name
       ML_PYTHON_CPU_JOB_DEFINITION = var.ml_python_cpu_job_definition_name
-      ML_INPUT_BUCKET          = var.ml_input_bucket
-      ML_OUTPUT_BUCKET         = var.ml_output_bucket
-      ENABLE_NOTIFICATIONS     = var.enable_notifications
-      SNS_TOPIC_ARN            = var.notifications_topic_arn
-      DLQ_URL                  = aws_sqs_queue.ml_trigger_dlq.id
-      DEFAULT_GPU_VCPUS        = var.default_gpu_vcpus
-      DEFAULT_GPU_MEMORY       = var.default_gpu_memory
-      DEFAULT_GPU_GPUS         = var.default_gpu_gpus
-      DEFAULT_CPU_VCPUS        = var.default_cpu_vcpus
-      DEFAULT_CPU_MEMORY       = var.default_cpu_memory
+      ML_INPUT_BUCKET              = var.ml_input_bucket
+      ML_OUTPUT_BUCKET             = var.ml_output_bucket
+      ENABLE_NOTIFICATIONS         = var.enable_notifications
+      SNS_TOPIC_ARN                = var.notifications_topic_arn
+      DLQ_URL                      = aws_sqs_queue.ml_trigger_dlq.id
+      DEFAULT_GPU_VCPUS            = var.default_gpu_vcpus
+      DEFAULT_GPU_MEMORY           = var.default_gpu_memory
+      DEFAULT_GPU_GPUS             = var.default_gpu_gpus
+      DEFAULT_CPU_VCPUS            = var.default_cpu_vcpus
+      DEFAULT_CPU_MEMORY           = var.default_cpu_memory
     }
   }
 
