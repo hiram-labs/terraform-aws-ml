@@ -31,6 +31,6 @@ Ensure your AWS credentials are available via one of:
 
 | Script              | Purpose                                      | Example Command |
 |---------------------|----------------------------------------------|-----------------|
-| download_models.py  | Download/upload Hugging Face models to S3     | `python download_models.py --bucket my-models --model-type whisper --model-names openai/whisper-base,openai/whisper-small` |
-| trigger_jobs.py     | Orchestrate jobs by publishing SNS messages   | `python trigger_jobs.py --preset extract-audio --data '{"input_key": "input/my_video.mp4"}'` |
-| upload_jobs.py      | Upload all files in jobs/ to S3               | `python upload_jobs.py --bucket my-bucket --prefix jobs/` |
+| src/download_models.py  | Download/upload Hugging Face models to S3     | `python src/download_models.py --bucket my-models --model-type whisper --model-names openai/whisper-base,openai/whisper-small` |
+| src/trigger_jobs.py     | Orchestrate jobs by publishing SNS messages   | `python src/trigger_jobs.py --preset extract-audio --data '{"input_key": "input/my_video.mp4"}'` |
+| src/upload_jobs.py      | Upload all files in jobs/ to S3               | `python src/upload_jobs.py --bucket my-bucket --prefix jobs/` |
