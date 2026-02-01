@@ -19,6 +19,24 @@ templates = Jinja2Templates(directory=str(templates_dir))
 static_dir = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+# History log file
+HISTORY_FILE = static_dir / "history.json"
+
+def load_history():
+    """Load job history from file"""
+    if HISTORY_FILE.exists():
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_history(history):
+    """Save job history to file"""
+    with open(HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2, default=str)
+
 # Default topic ARN (optional) -- can be provided via UI
 DEFAULT_TOPIC_ARN = os.getenv("TRIGGER_EVENTS_TOPIC_ARN")
 
@@ -126,10 +144,68 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
     sns = session.client('sns')
     try:
         resp = sns.publish(TopicArn=topic, Message=json.dumps(payload))
+        
+        # Log successful job submission
+        history = load_history()
+        job_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "topic_arn": topic,
+            "status": "success",
+            "sns_message_id": resp.get('MessageId'),
+            "form_data": {
+                "operation": payload.get('data', {}).get('operation') or (preset or 'custom'),
+                "compute_type": payload.get('data', {}).get('compute_type', 'unknown'),
+                "script_key": payload.get('data', {}).get('script_key', 'unknown'),
+                "input_key": input_key,
+                "output_key": output_key,
+                "input_bucket": input_bucket,
+                "output_bucket": output_bucket,
+                "model_bucket": model_bucket
+            },
+            "sns_response": resp,
+            "payload": payload
+        }
+        history.append(job_entry)
+        # Keep only last 100 entries
+        if len(history) > 100:
+            history = history[-100:]
+        save_history(history)
+        
     except Exception as e:
+        # Log failed SNS publish
+        history = load_history()
+        job_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "topic_arn": topic,
+            "status": "failed",
+            "error": str(e),
+            "form_data": {
+                "operation": payload.get('data', {}).get('operation') or (preset or 'custom'),
+                "compute_type": payload.get('data', {}).get('compute_type', 'unknown'),
+                "script_key": payload.get('data', {}).get('script_key', 'unknown'),
+                "input_key": input_key,
+                "output_key": output_key,
+                "input_bucket": input_bucket,
+                "output_bucket": output_bucket,
+                "model_bucket": model_bucket
+            },
+            "payload": payload
+        }
+        history.append(job_entry)
+        if len(history) > 100:
+            history = history[-100:]
+        save_history(history)
+        
         return JSONResponse({"error": str(e)}, status_code=500)
 
     return JSONResponse({"sns_response": resp, "payload": payload})
+
+
+@app.get("/history", response_class=JSONResponse)
+async def get_history():
+    """Get job history"""
+    history = load_history()
+    return JSONResponse({"history": history})
 
 
 if __name__ == '__main__':

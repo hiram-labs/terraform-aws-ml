@@ -5,6 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ML Pipeline Control Panel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      .history-item {
+        transition: all 0.2s ease;
+        border-left: 3px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.6rem !important;
+        background-color: #f8f9fa;
+      }
+      .history-item:hover {
+        background-color: #f0f1f3;
+        border-left-color: #0d6efd;
+      }
+      .history-item.success {
+        border-left-color: #198754;
+      }
+      .history-item.failed {
+        border-left-color: #dc3545;
+      }
+      .history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.4rem;
+      }
+      .history-header h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0 !important;
+      }
+      .history-header small {
+        font-size: 0.75rem;
+      }
+      .history-badge-group {
+        display: flex;
+        gap: 0.3rem;
+        align-items: center;
+      }
+      .history-badge-group .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+      }
+      .history-section {
+        margin-bottom: 0.4rem;
+      }
+      .history-section-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #6c757d;
+        margin-bottom: 0.1rem;
+      }
+      .history-section-value {
+        font-size: 0.85rem;
+        color: #212529;
+        word-break: break-word;
+      }
+      .history-section-value.muted {
+        color: #6c757d;
+        font-size: 0.75rem;
+      }
+      .history-error-box {
+        background-color: #f8d7da;
+        border: 1px solid #f5c2c7;
+        border-radius: 0.25rem;
+        padding: 0.35rem 0.5rem;
+        margin-top: 0.3rem;
+      }
+      .history-error-box small {
+        color: #842029;
+        font-size: 0.75rem;
+      }
+      .history-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-top: 0.3rem;
+        border-top: 1px solid #e9ecef;
+        margin-top: 0.3rem;
+      }
+      .history-timestamp {
+        font-size: 0.7rem;
+        color: #6c757d;
+      }
+      .history-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+      }
+    </style>
   </head>
   <body class="bg-light">
     <div class="container py-5">
@@ -75,13 +164,24 @@
         <div class="d-flex gap-2">
           <button class="btn btn-secondary" type="button" id="preview-btn">Preview</button>
           <button class="btn btn-primary" type="button" id="publish-btn">Publish</button>
+          <button class="btn btn-info" type="button" id="history-btn">Show History</button>
         </div>
       </form>
 
       <hr class="my-4">
 
-      <h5>Preview / Response</h5>
-      <pre id="output" class="p-3 bg-white border rounded" style="height:300px; overflow:auto;"></pre>
+      <div class="row">
+        <div class="col-md-6">
+          <h5>Preview / Response</h5>
+          <pre id="output" class="p-3 bg-white border rounded" style="height:300px; overflow:auto;"></pre>
+        </div>
+        <div class="col-md-6">
+          <h5>Job History</h5>
+          <div id="history-container" class="p-3 bg-white border rounded" style="height:300px; overflow:auto;">
+            <p class="text-muted">Click "Show History" to load recent jobs...</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -96,8 +196,88 @@
         document.getElementById('output').textContent = JSON.stringify(json, null, 2);
       }
 
+      async function loadHistory() {
+        try {
+          const resp = await fetch('/history');
+          const json = await resp.json();
+          const history = json.history || [];
+          
+          if (history.length === 0) {
+            document.getElementById('history-container').innerHTML = '<p class="text-muted">No jobs found in history.</p>';
+            return;
+          }
+          
+          let html = '<div class="list-group list-group-flush">';
+          history.reverse().forEach((job, index) => {
+            const timestamp = new Date(job.timestamp).toLocaleString();
+            
+            // Smart field selection: use form_data for original inputs, payload for derived values
+            const operation = job.form_data?.operation || job.operation || 'custom';
+            const computeType = job.form_data?.compute_type || job.payload?.data?.compute_type || job.compute_type || 'unknown';
+            const scriptKey = job.form_data?.script_key || job.payload?.data?.script_key || job.script_key || 'unknown';
+            const inputKey = job.form_data?.input_key || job.input_key || 'N/A';
+            const outputKey = job.form_data?.output_key || job.output_key || 'N/A';
+            const inputBucket = job.form_data?.input_bucket || job.input_bucket || 'N/A';
+            const outputBucket = job.form_data?.output_bucket || job.output_bucket || 'N/A';
+            const modelBucket = job.form_data?.model_bucket || job.model_bucket || 'N/A';
+            
+            const status = job.status || 'unknown';
+            const statusClass = status === 'success' ? 'success' : status === 'failed' ? 'failed' : '';
+            const statusBadge = status === 'success' 
+              ? '<span class="badge bg-success">Success</span>' 
+              : status === 'failed'
+              ? '<span class="badge bg-danger">Failed</span>'
+              : '<span class="badge bg-secondary">Unknown</span>';
+            
+            html += `
+              <div class="list-group-item history-item ${statusClass}">
+                <div class="history-header">
+                  <div>
+                    <h6 class="mb-0 fw-bold">${operation}</h6>
+                    <small class="text-muted">${computeType}</small>
+                  </div>
+                  <div class="history-badge-group">
+                    ${statusBadge}
+                  </div>
+                </div>
+
+                <div class="history-row">
+                  <div>
+                    <div class="history-section-label">Input</div>
+                    <div class="history-section-value">${inputKey}</div>
+                    ${inputBucket !== 'N/A' ? `<div class="history-section-value muted">${inputBucket}</div>` : ''}
+                  </div>
+                  <div>
+                    <div class="history-section-label">Output</div>
+                    <div class="history-section-value">${outputKey}</div>
+                    ${outputBucket !== 'N/A' ? `<div class="history-section-value muted">${outputBucket}</div>` : ''}
+                  </div>
+                </div>
+
+                ${scriptKey !== 'unknown' ? `<div class="history-section" style="margin-top: 0.3rem;"><small class="text-muted">Script: ${scriptKey}</small></div>` : ''}
+                ${modelBucket !== 'N/A' ? `<div class="history-section"><small class="text-muted">Model: ${modelBucket}</small></div>` : ''}
+                ${job.error ? `<div class="history-error-box"><small><strong>Error:</strong> ${job.error}</small></div>` : ''}
+
+                <div class="history-meta">
+                  <div class="history-timestamp">
+                    <small>${timestamp}</small>
+                    ${job.sns_message_id ? `<br><small>ID: ${job.sns_message_id.slice(-8)}</small>` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          
+          document.getElementById('history-container').innerHTML = html;
+        } catch (error) {
+          document.getElementById('history-container').innerHTML = '<p class="text-danger">Error loading history: ' + error.message + '</p>';
+        }
+      }
+
       document.getElementById('preview-btn').addEventListener('click', (e)=> postForm('/preview'));
       document.getElementById('publish-btn').addEventListener('click', (e)=> postForm('/publish'));
+      document.getElementById('history-btn').addEventListener('click', loadHistory);
     </script>
   </body>
 </html>

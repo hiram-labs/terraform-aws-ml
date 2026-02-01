@@ -206,3 +206,6 @@ cython_debug/
 
 .local/*
 .DS_Store
+
+# History logs
+admin/ui/static/history.json
