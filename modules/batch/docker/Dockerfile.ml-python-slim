@@ -42,7 +42,7 @@ RUN pip3 install \
     --index-url https://download.pytorch.org/whl/cu121
 
 # AWS SDK
-RUN pip3 install boto3
+RUN pip3 install awscli boto3
 
 # Transcribing stack
 RUN pip3 install \
