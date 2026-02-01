@@ -214,7 +214,7 @@ Uses defaults from terraform.tfvars (e.g., 4 vCPU, 16GB, 1 GPU):
 aws sns publish --topic-arn "$TOPIC_ARN" --message '{
   "trigger_type": "batch_job",
   "data": {
-    "script_key": "jobs/gpu_training.py"
+    "script_key": "jobs/gpu_processing.py"
   },
   "metadata": {
     "user": "ml-engineer",
@@ -231,7 +231,7 @@ Override defaults for larger jobs:
 aws sns publish --topic-arn "$TOPIC_ARN" --message '{
   "trigger_type": "batch_job",
   "data": {
-    "script_key": "jobs/gpu_training.py",
+    "script_key": "jobs/gpu_processing.py",
     "vcpus": 16,
     "memory": 65536,
     "gpus": 4
