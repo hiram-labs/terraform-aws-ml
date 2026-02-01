@@ -153,19 +153,24 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             zip_local.unlink()
             logger.info(f"Extracted model to {efs_model_path}")
         
-        # Find the snapshot directory
-        snapshots_dir = efs_model_path / 'snapshots'
-        if snapshots_dir.exists():
-            snapshot_dirs = list(snapshots_dir.iterdir())
-            if snapshot_dirs:
-                return str(snapshot_dirs[0])  # Assume only one
-        
-        raise RuntimeError(f"No snapshot directory found for {model_name}")
+        # Find the model path based on model type
+        if model_type == 'whisper':
+            # For Faster-Whisper, use the model directory directly
+            return str(efs_model_path)
+        else:
+            # For HuggingFace models like pyannote, find the snapshot directory
+            snapshots_dir = efs_model_path / 'snapshots'
+            if snapshots_dir.exists():
+                snapshot_dirs = list(snapshots_dir.iterdir())
+                if snapshot_dirs:
+                    return str(snapshot_dirs[0])  # Assume only one
+            
+            raise RuntimeError(f"No snapshot directory found for {model_name}")
     
     def _transcribe_audio(self, audio_file: str, model_path: str, language: str = 'en', compute_type: str = 'cpu') -> List[Dict]:
         """Transcribe audio using Faster-Whisper with local model"""
         logger.info(f"Loading Faster-Whisper model from: {model_path}")
-        model = WhisperModel(model_path, device=compute_type, local_files_only=True)
+        model = WhisperModel(model_path, device=compute_type)
         
         logger.info(f"Transcribing audio: {audio_file}")
         segments, info = model.transcribe(audio_file, language=language)
