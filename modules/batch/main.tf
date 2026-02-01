@@ -241,7 +241,7 @@ resource "aws_batch_compute_environment" "gpu_compute_env" {
   compute_resources {
     type                = var.use_spot_instances ? "SPOT" : "EC2"
     allocation_strategy = var.use_spot_instances ? "SPOT_CAPACITY_OPTIMIZED" : "BEST_FIT_PROGRESSIVE"
-    
+
     min_vcpus     = var.min_vcpus
     max_vcpus     = var.max_vcpus
     desired_vcpus = var.desired_vcpus
@@ -373,10 +373,10 @@ resource "aws_cloudwatch_log_group" "batch_jobs_log_group" {
 }
 
 ###############################################################
-# Batch Job Definition - Python ML Workload                   #
+# Batch Job Definition - Python ML Workload (GPU)             #
 ###############################################################
 resource "aws_batch_job_definition" "ml_python_job" {
-  name = "${var.project_name}-ml-python-job"
+  name = "${var.project_name}-ml-python-gpu-job"
   type = "container"
 
   platform_capabilities = ["EC2"]
@@ -399,8 +399,8 @@ resource "aws_batch_job_definition" "ml_python_job" {
       }
     ]
 
-    jobRoleArn            = aws_iam_role.batch_job_role.arn
-    executionRoleArn      = aws_iam_role.ecs_task_execution_role.arn
+    jobRoleArn       = aws_iam_role.batch_job_role.arn
+    executionRoleArn = aws_iam_role.ecs_task_execution_role.arn
 
     environment = [
       {
@@ -445,12 +445,31 @@ resource "aws_batch_job_definition" "ml_python_job" {
         }
       ]
     }
+
+    mountPoints = [
+      {
+        sourceVolume  = "model-cache"
+        containerPath = "/opt/models"
+        readOnly      = false
+      }
+    ]
+
+    volumes = [
+      {
+        name = "model-cache"
+        efsVolumeConfiguration = {
+          fileSystemId      = var.efs_file_system_id
+          rootDirectory     = "/"
+          transitEncryption = "ENABLED"
+        }
+      }
+    ]
   })
 
   retry_strategy {
     attempts = var.job_retry_attempts
     evaluate_on_exit {
-      action       = "RETRY"
+      action           = "RETRY"
       on_status_reason = "Task failed to start"
     }
     evaluate_on_exit {
@@ -512,7 +531,7 @@ resource "aws_batch_compute_environment" "cpu_compute_env" {
   compute_resources {
     type                = var.cpu_use_spot_instances ? "SPOT" : "EC2"
     allocation_strategy = var.cpu_use_spot_instances ? "SPOT_CAPACITY_OPTIMIZED" : "BEST_FIT_PROGRESSIVE"
-    
+
     min_vcpus     = var.cpu_min_vcpus
     max_vcpus     = var.cpu_max_vcpus
     desired_vcpus = var.cpu_desired_vcpus
@@ -574,8 +593,8 @@ resource "aws_batch_job_queue" "cpu_job_queue" {
 # Batch Job Definition - CPU (No GPU)                         #
 ###############################################################
 resource "aws_batch_job_definition" "ml_python_cpu_job" {
-  name  = "${var.project_name}-ml-python-cpu-job"
-  type  = "container"
+  name = "${var.project_name}-ml-python-cpu-job"
+  type = "container"
 
   platform_capabilities = ["EC2"]
 
@@ -593,8 +612,8 @@ resource "aws_batch_job_definition" "ml_python_cpu_job" {
       }
     ]
 
-    jobRoleArn            = aws_iam_role.batch_job_role.arn
-    executionRoleArn      = aws_iam_role.ecs_task_execution_role.arn
+    jobRoleArn       = aws_iam_role.batch_job_role.arn
+    executionRoleArn = aws_iam_role.ecs_task_execution_role.arn
 
     environment = [
       {
@@ -619,6 +638,25 @@ resource "aws_batch_job_definition" "ml_python_cpu_job" {
         "awslogs-stream-prefix" = "ml-cpu-job"
       }
     }
+
+    mountPoints = [
+      {
+        sourceVolume  = "model-cache"
+        containerPath = "/opt/models"
+        readOnly      = false
+      }
+    ]
+
+    volumes = [
+      {
+        name = "model-cache"
+        efsVolumeConfiguration = {
+          fileSystemId      = var.efs_file_system_id
+          rootDirectory     = "/"
+          transitEncryption = "ENABLED"
+        }
+      }
+    ]
   })
 
   timeout {

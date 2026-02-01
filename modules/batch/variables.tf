@@ -13,6 +13,11 @@ variable "vpc_id" {
   type        = string
 }
 
+variable "efs_file_system_id" {
+  description = "EFS file system ID for model cache"
+  type        = string
+}
+
 variable "private_subnets" {
   description = "Private subnet IDs for Batch compute instances"
   type        = list(string)
