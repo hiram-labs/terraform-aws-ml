@@ -131,3 +131,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# python src/trigger_jobs.py --preset extract-audio --data '{"input_key": "media/sintel-short.mp4", "output_key": "media/sintel-short.wav"}'
+# python src/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "media/sintel-short.wav", "output_key": "data/sintel-short.json"}' --input-bucket ml-pipeline-ml-output
