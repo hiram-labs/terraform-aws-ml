@@ -32,6 +32,7 @@ import sys
 import argparse
 import boto3
 import logging
+import zipfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -100,19 +101,26 @@ def download_models(models: list, hf_token: str = None):
     Args:
         models: List of HuggingFace model IDs
         hf_token: Optional HuggingFace token for gated/private models
+        
+    Returns:
+        List of Path objects to the downloaded model directories
     """
     from huggingface_hub import snapshot_download
     
     logger.info(f"Downloading HuggingFace models: {', '.join(models)}")
     
+    downloaded_paths = []
     for model_name in models:
         try:
             logger.info(f"Downloading {model_name}...")
-            snapshot_download(repo_id=model_name, token=hf_token)
-            logger.info(f"Downloaded {model_name}")
+            local_path = snapshot_download(repo_id=model_name, token=hf_token)
+            downloaded_paths.append(Path(local_path))
+            logger.info(f"Downloaded {model_name} to {local_path}")
         except Exception as e:
             logger.error(f"Failed to download {model_name}: {str(e)}")
             raise
+    
+    return downloaded_paths
 
 
 def get_huggingface_cache_dir():
@@ -120,35 +128,48 @@ def get_huggingface_cache_dir():
     return Path(os.getenv('HF_HOME', Path.home() / '.cache' / 'huggingface'))
 
 
-def upload_models_to_s3(s3_client, bucket: str, prefix: str, model_type: str, output_prefix: str = None):
-    """Upload downloaded models to S3"""
+def upload_models_to_s3(s3_client, bucket: str, prefix: str, model_type: str, output_prefix: str = None, downloaded_paths: list = None):
+    """Upload downloaded models to S3 as a zip file"""
+    if not downloaded_paths:
+        logger.error("No downloaded paths provided")
+        return False
+    
     cache_dir = get_huggingface_cache_dir()
     hub_dir = cache_dir / 'hub'
     
-    if not hub_dir.exists():
-        logger.error(f"Cache directory not found: {hub_dir}")
-        return False
-    
     base_prefix = output_prefix if output_prefix else f"{prefix}/{model_type}"
     
-    logger.info(f"Uploading models from {hub_dir} to s3://{bucket}/{base_prefix}")
+    zip_path = cache_dir / f"{model_type}.zip"
+    logger.info(f"Creating zip file: {zip_path}")
     
-    uploaded = 0
-    for local_file in hub_dir.rglob('*'):
-        if local_file.is_file():
-            relative_path = local_file.relative_to(hub_dir)
-            s3_key = f"{base_prefix}/{relative_path}"
-            
-            try:
-                logger.debug(f"Uploading: {s3_key}")
-                s3_client.upload_file(str(local_file), bucket, s3_key)
-                uploaded += 1
-            except Exception as e:
-                logger.error(f"Failed to upload {s3_key}: {str(e)}")
-                raise
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for downloaded_path in downloaded_paths:
+            snapshots_dir = downloaded_path.parent  # snapshots/
+            for local_file in downloaded_path.rglob('*'):
+                if local_file.is_file():
+                    relative_path = Path('snapshots') / local_file.relative_to(snapshots_dir)
+                    if local_file.is_symlink():
+                        # Dereference the symlink
+                        target = local_file.readlink()
+                        actual_file = (local_file.parent / target).resolve()
+                        zipf.write(actual_file, str(relative_path))
+                        logger.info(f"Dereferenced symlink: {relative_path}")
+                    else:
+                        zipf.write(local_file, str(relative_path))
+                        logger.info(f"Zipping: {relative_path}")
     
-    logger.info(f"Uploaded {uploaded} files to S3")
-    return True
+    s3_key = f"{base_prefix}.zip"
+    logger.info(f"Uploading zip to s3://{bucket}/{s3_key}")
+    
+    try:
+        s3_client.upload_file(str(zip_path), bucket, s3_key)
+        logger.info("Upload complete")
+        zip_path.unlink()
+        logger.info(f"Cleaned up local zip file: {zip_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to upload {s3_key}: {str(e)}")
+        raise
 
 
 def main():
@@ -178,16 +199,16 @@ def main():
         logger.info("Bucket accessible")
         
         logger.info("Downloading models...")
-        download_models(models, hf_token)
+        downloaded_paths = download_models(models, hf_token)
         
         logger.info("Uploading models to S3...")
-        upload_models_to_s3(s3_client, args.bucket, args.prefix, args.model_type, args.output_prefix)
+        upload_models_to_s3(s3_client, args.bucket, args.prefix, args.model_type, args.output_prefix, downloaded_paths)
         
         output_prefix = args.output_prefix if args.output_prefix else f"{args.prefix}/{args.model_type}"
         logger.info("Setup complete")
-        logger.info(f"Models uploaded to: s3://{args.bucket}/{output_prefix}")
+        logger.info(f"Models uploaded to: s3://{args.bucket}/{output_prefix}.zip")
         logger.info("To use in your jobs, reference the S3 path:")
-        logger.info(f"s3://{args.bucket}/{output_prefix}")
+        logger.info(f"s3://{args.bucket}/{output_prefix}.zip")
         
     except Exception as e:
         logger.error(f"Setup failed: {str(e)}")
