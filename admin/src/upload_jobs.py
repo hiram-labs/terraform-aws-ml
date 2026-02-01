@@ -56,7 +56,7 @@ def main():
     session = boto3.Session(region_name=args.region)
     s3_client = session.client('s3')
     logger.info(f"Uploading all files in jobs/ to s3://{args.bucket}/{args.prefix}")
-    upload_files(s3_client, args.bucket, args.prefix, os.path.join(os.path.dirname(__file__), '..', 'jobs'))
+    upload_files(s3_client, args.bucket, args.prefix, os.path.join(os.path.dirname(__file__), '..', '..', 'jobs'))
 
 if __name__ == '__main__':
     main()
