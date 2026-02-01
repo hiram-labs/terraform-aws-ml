@@ -29,7 +29,7 @@ if [ -n "${INPUT_KEY}" ]; then
     if [[ "${INPUT_KEY}" == *.py ]]; then
         echo "Downloading Python script: s3://${INPUT_BUCKET}/${INPUT_KEY}"
         aws s3 cp "s3://${INPUT_BUCKET}/${INPUT_KEY}" /workspace/script.py
-        
+
         echo "Executing Python script..."
         # Pass SNS_MESSAGE to script via stdin
         if [ -n "${SNS_MESSAGE}" ]; then
