@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 INPUT_BUCKET = os.environ.get('INPUT_BUCKET')
 OUTPUT_BUCKET = os.environ.get('OUTPUT_BUCKET')
-MODEL_BUCKET = os.environ.get('MODEL_BUCKET')
+MODELS_BUCKET = os.environ.get('MODELS_BUCKET')
 COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
 
 s3_client = boto3.client('s3')
@@ -68,9 +68,9 @@ s3_client = boto3.client('s3')
 class TranscribeOperation(ABC):
     """Base class for transcribe operations"""
     
-    def __init__(self, args: Dict, model_bucket: str = None):
+    def __init__(self, args: Dict, models_bucket: str = None):
         self.args = args
-        self.model_bucket = model_bucket or MODEL_BUCKET
+        self.models_bucket = models_bucket or MODELS_BUCKET
     
     @abstractmethod
     def process(self, audio_file: str, tmpdir: str) -> Dict:
@@ -129,9 +129,9 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
     
     def _download_model_from_s3(self, tmpdir: str, model_name: str, model_type: str) -> str:
         """Download and extract model from S3 zip to EFS cache"""
-        bucket = self.model_bucket
+        bucket = self.models_bucket
         if not bucket:
-            raise ValueError("MODEL_BUCKET environment variable is not set")
+            raise ValueError("MODELS_BUCKET environment variable is not set")
         model_key = model_name.replace('/', '-')
         zip_key = f"models/{model_type}/{model_key}.zip"
         efs_model_path = Path('/opt/models') / model_type / model_key
@@ -304,7 +304,7 @@ class TranscribeProcessor:
         # Get bucket configs from payload first, then fall back to environment variables
         self.input_bucket = job_def.get('input_bucket') or INPUT_BUCKET
         self.output_bucket = job_def.get('output_bucket') or OUTPUT_BUCKET
-        self.model_bucket = job_def.get('model_bucket') or MODEL_BUCKET
+        self.models_bucket = job_def.get('models_bucket') or MODELS_BUCKET
     
     def validate(self):
         """Validate job configuration"""
@@ -334,7 +334,7 @@ class TranscribeProcessor:
                 logger.info("Audio downloaded successfully")
                 
                 operation_class = OPERATIONS[self.operation_type]
-                operation = operation_class(self.args, self.model_bucket)
+                operation = operation_class(self.args, self.models_bucket)
                 result = operation.process(local_input, tmpdir)
                 
                 output_format = self.args.get('output_format', 'json')
