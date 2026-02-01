@@ -59,6 +59,8 @@ s3_client = boto3.client('s3')
 class FFmpegOperation(ABC):
     """Base class for FFmpeg operations"""
     
+    format: str = 'wav'  # Default format, override in subclasses
+    
     def __init__(self, args: Dict):
         self.args = args
     
@@ -69,7 +71,7 @@ class FFmpegOperation(ABC):
     
     def execute(self, input_file: str, output_file: str) -> str:
         """Execute the ffmpeg operation"""
-        cmd = ['ffmpeg', '-i', input_file] + self.build_command(input_file, output_file) + ['-y', output_file]
+        cmd = ['ffmpeg', '-i', input_file] + self.build_command(input_file, output_file) + ['-f', self.format, '-y', output_file]
         
         logger.info(f"Running command: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True)
