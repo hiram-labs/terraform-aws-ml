@@ -3,9 +3,9 @@
 Trigger jobs by publishing messages to an SNS topic.
 
 Usage:
-    python src/trigger_jobs.py --topic-arn <SNS_TOPIC_ARN> --data '{"input_key": "path/to/input.mp4"}'
-    python src/trigger_jobs.py --preset extract-audio --data '{"input_key": "path/to/input.mp4"}'
-    python src/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "path/to/input.wav"}'
+    python scripts/trigger_jobs.py --topic-arn <SNS_TOPIC_ARN> --data '{"input_key": "path/to/input.mp4"}'
+    python scripts/trigger_jobs.py --preset extract-audio --data '{"input_key": "path/to/input.mp4"}'
+    python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "path/to/input.wav"}'
 
 Environment Variables:
     TRIGGER_EVENTS_TOPIC_ARN, AWS_PROFILE, AWS_REGION (optional)
@@ -132,5 +132,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# python src/trigger_jobs.py --preset extract-audio --data '{"input_key": "media/sintel-short.mp4", "output_key": "media/sintel-short.wav"}'
-# python src/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "media/sintel-short.wav", "output_key": "data/sintel-short.json"}' --input-bucket ml-pipeline-ml-output
+# python scripts/trigger_jobs.py --preset extract-audio --data '{"input_key": "media/sintel-short.mp4", "output_key": "media/sintel-short.wav"}'
+# python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "media/sintel-short.wav", "output_key": "data/sintel-short.json"}' --input-bucket ml-pipeline-ml-output

@@ -18,7 +18,7 @@ Usage:
         --hf-token YOUR_TOKEN
     
     # Any other HuggingFace model
-    python src/download_models.py --bucket my-models \
+    python scripts/download_models.py --bucket my-models \
         --model-names bert-base-uncased,gpt2,facebook/bart-large
 
 Environment Variables:
@@ -220,5 +220,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# python src/download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-3.1
-# python src/download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names openai/whisper-small.en
+# python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-3.1
+# python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names openai/whisper-small.en

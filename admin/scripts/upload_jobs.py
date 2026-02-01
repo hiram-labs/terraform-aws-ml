@@ -3,7 +3,7 @@
 Upload all files in the jobs directory to a specified S3 bucket/prefix.
 
 Usage:
-    python src/upload_jobs.py --bucket my-bucket --prefix jobs/
+    python scripts/upload_jobs.py --bucket my-bucket --prefix jobs/
 
 Environment Variables:
     AWS_PROFILE, AWS_REGION (optional)
