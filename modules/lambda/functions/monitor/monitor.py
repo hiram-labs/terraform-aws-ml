@@ -94,7 +94,7 @@ Check the output bucket for results.
 """
     
     send_notification(
-        subject=f"✅ ML Job Succeeded: {job_name}",
+        subject=f"✔ ML Job Succeeded: {job_name}",
         message=message
     )
     
@@ -130,7 +130,7 @@ Please check the logs for detailed error information.
 """
     
     send_notification(
-        subject=f"❌ ML Job Failed: {job_name}",
+        subject=f"✗ ML Job Failed: {job_name}",
         message=message
     )
     

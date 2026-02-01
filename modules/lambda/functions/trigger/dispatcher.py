@@ -271,7 +271,7 @@ def format_notification(result: Dict[str, Any]) -> str:
     lines = []
     
     if result['status'] == 'success':
-        lines.append("✅ TRIGGER EXECUTION SUCCESSFUL\n")
+        lines.append("✔ TRIGGER EXECUTION SUCCESSFUL\n")
         lines.append(f"Trigger Type: {result.get('trigger_type', 'unknown')}")
         
         if 'job_id' in result:
@@ -285,7 +285,7 @@ def format_notification(result: Dict[str, Any]) -> str:
                 if value:
                     lines.append(f"  {key}: {value}")
     else:
-        lines.append("❌ TRIGGER EXECUTION FAILED\n")
+        lines.append("✗ TRIGGER EXECUTION FAILED\n")
         lines.append(f"Error Type: {result.get('error_type', 'unknown')}")
         lines.append(f"Error: {result.get('error_message', 'unknown error')}")
     
