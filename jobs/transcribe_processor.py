@@ -59,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 INPUT_BUCKET = os.environ.get('INPUT_BUCKET')
 OUTPUT_BUCKET = os.environ.get('OUTPUT_BUCKET')
+MODEL_BUCKET = os.environ.get('MODEL_BUCKET')
 COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
 
 s3_client = boto3.client('s3')
@@ -127,7 +128,9 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
     
     def _download_model_from_s3(self, tmpdir: str, model_name: str, model_type: str) -> str:
         """Download and extract model from S3 zip to EFS cache"""
-        bucket = INPUT_BUCKET
+        bucket = MODEL_BUCKET
+        if not bucket:
+            raise ValueError("MODEL_BUCKET environment variable is not set")
         model_key = model_name.replace('/', '-')
         zip_key = f"models/{model_type}/{model_key}.zip"
         efs_model_path = Path('/opt/models') / model_type / model_key
