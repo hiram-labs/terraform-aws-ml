@@ -32,27 +32,20 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
-RUN python3 -m pip install --upgrade pip setuptools wheel
+# Upgrade pip for better dependency resolution
+RUN python3 -m pip install --upgrade pip
 
-# PyTorch CUDA 12.1
-RUN pip3 install \
-    torch==2.1.0 \
-    torchaudio==2.1.0 \
-    --index-url https://download.pytorch.org/whl/cu121
-
-# AWS SDK
-RUN pip3 install awscli boto3
-
-# Transcribing stack
-RUN pip3 install \
-    faster-whisper==0.10.0 \
-    pyannote.audio==3.0.1
+COPY requirements.txt /tmp/
+RUN pip3 install -r /tmp/requirements.txt
 
 WORKDIR /workspace
 
 COPY entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Validate all imports work, then remove test script
+COPY test-imports.py /tmp/
+RUN python3 /tmp/test-imports.py && rm /tmp/test-imports.py
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["python3"]
