@@ -136,6 +136,7 @@ resource "aws_lambda_function" "trigger_dispatcher" {
       ML_PYTHON_CPU_JOB_DEFINITION = var.ml_python_cpu_job_definition_name
       ML_INPUT_BUCKET              = var.ml_input_bucket
       ML_OUTPUT_BUCKET             = var.ml_output_bucket
+      ML_MODELS_BUCKET             = var.ml_models_bucket
       ENABLE_NOTIFICATIONS         = var.enable_notifications
       SNS_TOPIC_ARN                = var.notifications_topic_arn
       DLQ_URL                      = aws_sqs_queue.ml_trigger_dlq.id

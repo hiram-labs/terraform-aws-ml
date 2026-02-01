@@ -110,6 +110,7 @@ module "lambda" {
   ml_input_bucket                   = module.s3.ml_input_bucket_name
   ml_output_bucket                  = module.s3.ml_output_bucket_name
   ml_output_bucket_arn              = module.s3.ml_output_bucket_arn
+  ml_models_bucket                  = module.s3.ml_models_bucket_name
   batch_job_queue_name              = module.batch.batch_job_queue_name
   batch_job_queue_arn               = module.batch.batch_job_queue_arn
   ml_python_job_definition_name     = module.batch.ml_python_job_definition_name
