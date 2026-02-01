@@ -109,6 +109,7 @@ class BatchJobTrigger(BaseTrigger):
         self.cpu_job_definition = os.environ.get('ML_PYTHON_CPU_JOB_DEFINITION', '')
         self.output_bucket = os.environ['ML_OUTPUT_BUCKET']
         self.input_bucket = os.environ.get('ML_INPUT_BUCKET', '')
+        self.models_bucket = os.environ.get('ML_MODELS_BUCKET', '')
         
         # Default resource allocations from Terraform
         self.default_gpu_vcpus = int(os.environ.get('DEFAULT_GPU_VCPUS', '4'))
@@ -211,6 +212,7 @@ class BatchJobTrigger(BaseTrigger):
                 'INPUT_BUCKET': self.input_bucket,
                 'INPUT_KEY': script_key,
                 'OUTPUT_BUCKET': self.output_bucket,
+                'MODELS_BUCKET': self.models_bucket,
                 'OUTPUT_PREFIX': self._generate_output_prefix(job_name),
                 'TIMESTAMP': datetime.now().isoformat(),
                 'TRIGGER_USER': self.get_metadata('user', 'unknown'),
