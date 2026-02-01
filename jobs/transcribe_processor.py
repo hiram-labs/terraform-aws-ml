@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Transcript Processor for AWS Batch
+Transcribe Processor for AWS Batch
 
-Extensible framework for audio transcription with speaker diarization.
-Downloads audio from S3, loads pre-downloaded models from S3, runs transcription and 
+Extensible framework for audio transcribe with speaker diarization.
+Downloads audio from S3, loads pre-downloaded models from S3, runs transcribe and 
 speaker identification, saves results.
 
 Supported Operations:
 - transcribe: Convert audio to text with speaker labels (high-speed, speaker-aware)
 
 To add new operations:
-  1. Create a class inheriting from TranscriptionOperation
+  1. Create a class inheriting from TranscribeOperation
   2. Implement process() method
   3. Add to OPERATIONS registry
 
@@ -18,11 +18,11 @@ SNS Trigger Format:
 {
   "trigger_type": "batch_job",
   "data": {
-    "script_key": "jobs/transcript_processor.py",
+    "script_key": "jobs/transcribe_processor.py",
     "compute_type": "gpu",
     "operation": "transcribe",
     "input_key": "audio/input.wav",
-    "output_key": "transcriptions/output.json",
+    "output_key": "transcribe/output.json",
     "args": {
       "language": "en",
       "output_format": "json",
@@ -64,19 +64,19 @@ COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
 s3_client = boto3.client('s3')
 
 
-class TranscriptionOperation(ABC):
-    """Base class for transcription operations"""
+class TranscribeOperation(ABC):
+    """Base class for transcribe operations"""
     
     def __init__(self, args: Dict):
         self.args = args
     
     @abstractmethod
     def process(self, audio_file: str, tmpdir: str) -> Dict:
-        """Process audio file and return transcription results"""
+        """Process audio file and return transcribe results"""
         pass
 
 
-class TranscribeOperation(TranscriptionOperation):
+class TranscribeWithDiarizationOperation(TranscribeOperation):
     """Transcribe audio with speaker diarization using Faster-Whisper and pyannote"""
     
     def process(self, audio_file: str, tmpdir: str) -> Dict:
@@ -92,11 +92,11 @@ class TranscribeOperation(TranscriptionOperation):
         whisper_model_path = self._download_model_from_s3(tmpdir, whisper_model_name, 'whisper')
         pyannote_model_path = self._download_model_from_s3(tmpdir, pyannote_model_name, 'pyannote')
         
-        logger.info("Starting transcription and speaker diarization...")
-        transcription = self._transcribe_audio(audio_file, whisper_model_path, language, compute_type)
+        logger.info("Starting transcribe and speaker diarization...")
+        transcribe_result = self._transcribe_audio(audio_file, whisper_model_path, language, compute_type)
         speakers = self._diarize_audio(audio_file, pyannote_model_path)
         
-        segments = self._align_transcription_with_speakers(transcription, speakers)
+        segments = self._align_transcribe_with_speakers(transcribe_result, speakers)
         
         num_speakers = len(set(s['speaker'] for s in segments if s['speaker'] != 'Unknown'))
         
@@ -174,7 +174,7 @@ class TranscribeOperation(TranscriptionOperation):
                 'text': segment.text.strip()
             })
         
-        logger.info(f"Transcription complete: {len(result)} segments")
+        logger.info(f"Transcribe complete: {len(result)} segments")
         return result
     
     def _diarize_audio(self, audio_file: str, model_path: str) -> List[Dict]:
@@ -200,11 +200,11 @@ class TranscribeOperation(TranscriptionOperation):
         logger.info(f"Diarization complete: {len(set(s['speaker'] for s in speakers))} speakers detected")
         return speakers
     
-    def _align_transcription_with_speakers(self, transcription: List[Dict], speakers: List[Dict]) -> List[Dict]:
-        """Merge transcription segments with speaker labels"""
+    def _align_transcribe_with_speakers(self, transcribe_result: List[Dict], speakers: List[Dict]) -> List[Dict]:
+        """Merge transcribe segments with speaker labels"""
         result = []
         
-        for trans_seg in transcription:
+        for trans_seg in transcribe_result:
             trans_start = trans_seg['start']
             trans_end = trans_seg['end']
             
@@ -230,7 +230,7 @@ class TranscribeOperation(TranscriptionOperation):
 
 # Registry of available operations
 OPERATIONS: Dict[str, type] = {
-    'transcribe': TranscribeOperation,
+    'transcribe': TranscribeWithDiarizationOperation,
 }
 
 
@@ -286,8 +286,8 @@ def format_timestamp_srt(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
 
-class TranscriptProcessor:
-    """Main processor for transcription jobs"""
+class TranscribeProcessor:
+    """Main processor for transcribe jobs"""
     
     def __init__(self, job_def: Dict):
         self.job_def = job_def
@@ -306,7 +306,7 @@ class TranscriptProcessor:
             raise ValueError(f"Unknown operation: {self.operation_type}")
     
     def process(self) -> Dict:
-        """Execute the transcription operation"""
+        """Execute the transcribe operation"""
         try:
             self.validate()
             
@@ -366,7 +366,7 @@ class TranscriptProcessor:
 def main():
     """Main execution function"""
     job_def = json.loads(sys.stdin.read())
-    processor = TranscriptProcessor(job_def)
+    processor = TranscribeProcessor(job_def)
     
     try:
         processor.process()
