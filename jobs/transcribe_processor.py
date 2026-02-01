@@ -26,7 +26,7 @@ SNS Trigger Format:
     "args": {
       "language": "en",
       "output_format": "json",
-      "whisper_model": "openai/whisper-small",
+      "whisper_model": "guillaumekln/faster-whisper-small.en",
       "pyannote_model": "pyannote/speaker-diarization-3.1"
     }
   }
@@ -84,7 +84,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
     def process(self, audio_file: str, tmpdir: str) -> Dict:
         language = self.args.get('language', 'en')
         output_format = self.args.get('output_format', 'json')
-        whisper_model_name = self.args.get('whisper_model', 'openai/whisper-small')
+        whisper_model_name = self.args.get('whisper_model', 'guillaumekln/faster-whisper-small.en')
         pyannote_model_name = self.args.get('pyannote_model', 'pyannote/speaker-diarization-3.1')
         
         device = self._get_device()
@@ -152,18 +152,12 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             
             zip_local.unlink()
             logger.info(f"Extracted model to {efs_model_path}")
-        
-        # Find the model path based on model type
-        if model_type == 'whisper':
-            # For Faster-Whisper, use the model directory directly
-            return str(efs_model_path)
-        else:
-            # For HuggingFace models like pyannote, find the snapshot directory
+
             snapshots_dir = efs_model_path / 'snapshots'
             if snapshots_dir.exists():
                 snapshot_dirs = list(snapshots_dir.iterdir())
                 if snapshot_dirs:
-                    return str(snapshot_dirs[0])  # Assume only one
+                    return str(snapshot_dirs[0])
             
             raise RuntimeError(f"No snapshot directory found for {model_name}")
     

@@ -9,7 +9,7 @@ Usage:
     # Whisper speech recognition models
     python src/download_models.py --bucket my-models \
         --model-type whisper \
-        --model-names openai/whisper-tiny,openai/whisper-base,openai/whisper-small
+        --model-names openai/whisper-tiny,openai/whisper-base,guillaumekln/faster-whisper-small.en
     
     # Pyannote speaker diarization models (requires HuggingFace token)
     python src/download_models.py --bucket my-models \
@@ -221,4 +221,4 @@ if __name__ == '__main__':
     main()
 
 # python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-3.1
-# python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names openai/whisper-small.en
+# python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names guillaumekln/faster-whisper-small.en
