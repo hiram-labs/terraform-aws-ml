@@ -1,0 +1,49 @@
+# Minimal Python ML Container for Video/Audio Processing
+# Only includes dependencies needed for video_processor.py and transcribe_processor.py
+# - Python 3.11 slim
+# - FFmpeg for video processing
+# - PyTorch, faster-whisper, pyannote for transcription
+# - boto3 for S3 access
+
+FROM python:3.11-slim
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install minimal system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    curl \
+    ca-certificates \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python3 -m pip install --upgrade pip setuptools wheel
+
+# Install AWS SDK
+RUN pip3 install boto3
+
+# Install PyTorch (CPU only, minimal)
+RUN pip3 install torch==2.1.0+cpu torchvision==0.16.0+cpu torchaudio==2.1.0+cpu \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install transcription dependencies
+RUN pip3 install \
+    faster-whisper==0.10.0 \
+    pyannote.audio==3.0.1
+
+# Create working directory
+WORKDIR /workspace
+
+# Copy entry point script
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Set entry point
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["python3"]
