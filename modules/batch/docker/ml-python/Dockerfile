@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
     libgomp1 \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install core dependencies
