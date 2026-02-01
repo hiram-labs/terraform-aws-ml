@@ -12,16 +12,17 @@ This directory contains Docker images for AWS Batch jobs.
 
 **Includes:**
 - Python 3.11
-- AWS CLI + boto3
-- NumPy, Pandas, Scikit-learn, Scipy
-- Matplotlib, Seaborn, Plotly
-- Pillow, OpenCV (headless)
+- FFmpeg for video/audio processing
+- PyTorch CPU (minimal)
+- faster-whisper for transcription
+- pyannote.audio for speaker diarization
+- boto3 for S3 access
 
 **Does NOT include:**
 - CUDA drivers
 - TensorFlow
-- PyTorch
 - GPU support
+- Data science libraries (removed for minimal size)
 
 ### ml-python (Full GPU-enabled)
 
@@ -44,7 +45,7 @@ This directory contains Docker images for AWS Batch jobs.
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline slim
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python-slim
 ```
 
 **Output:**
@@ -56,10 +57,10 @@ ECR URI: 123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python-slim
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline full
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python
 ```
 
-### Build Both
+### Build All Images
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -84,7 +85,7 @@ terraform apply
 
 ### Modifying Slim Image
 
-Edit `ml-python-slim/Dockerfile` to add more Python packages:
+Edit `Dockerfile.ml-python-slim` to add more Python packages:
 
 ```dockerfile
 RUN pip3 install additional-library
@@ -93,12 +94,12 @@ RUN pip3 install additional-library
 Then rebuild:
 
 ```bash
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline slim
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python-slim
 ```
 
 ### Modifying Full GPU Image
 
-Edit `ml-python/Dockerfile` similarly and rebuild with `full` option.
+Edit `Dockerfile.ml-python` similarly and rebuild with `ml-python` option.
 
 ## Tips
 
@@ -109,6 +110,6 @@ Edit `ml-python/Dockerfile` similarly and rebuild with `full` option.
 - **Testing locally:** You can test the image locally before pushing to ECR:
 
 ```bash
-docker build -f ml-python-slim/Dockerfile -t my-test-image:latest .
+docker build -f Dockerfile.ml-python-slim -t my-test-image:latest .
 docker run --rm -it my-test-image:latest python3 --version
 ```

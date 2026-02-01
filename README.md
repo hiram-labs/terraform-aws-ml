@@ -64,12 +64,12 @@ terraform apply
 Choose which container image to build:
 
 **Option A: Slim Python Image (Fast - ~2 minutes)**
-Lightweight Python 3.11 with AWS CLI, NumPy, Pandas - perfect for testing and CPU workloads:
+Minimal Python 3.11 with FFmpeg, PyTorch CPU, faster-whisper, and pyannote.audio - perfect for video processing and transcription jobs:
 
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME slim
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME ml-python-slim
 cd $OLDPWD
 
 # Copy the ECR URI from output
@@ -81,13 +81,13 @@ Heavy container with CUDA, TensorFlow 2.15, PyTorch 2.1 - for GPU training/infer
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME full
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME ml-python
 cd $OLDPWD
 
 # Copy the ECR URI from output
 ```
 
-**Option C: Build Both (takes ~20-25 minutes total)**
+**Option C: Build All Images (takes ~20-25 minutes total)**
 
 ```bash
 cd modules/batch/docker
