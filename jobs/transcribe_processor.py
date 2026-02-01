@@ -68,8 +68,9 @@ s3_client = boto3.client('s3')
 class TranscribeOperation(ABC):
     """Base class for transcribe operations"""
     
-    def __init__(self, args: Dict):
+    def __init__(self, args: Dict, model_bucket: str = None):
         self.args = args
+        self.model_bucket = model_bucket or MODEL_BUCKET
     
     @abstractmethod
     def process(self, audio_file: str, tmpdir: str) -> Dict:
@@ -128,7 +129,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
     
     def _download_model_from_s3(self, tmpdir: str, model_name: str, model_type: str) -> str:
         """Download and extract model from S3 zip to EFS cache"""
-        bucket = MODEL_BUCKET
+        bucket = self.model_bucket
         if not bucket:
             raise ValueError("MODEL_BUCKET environment variable is not set")
         model_key = model_name.replace('/', '-')
@@ -299,6 +300,11 @@ class TranscribeProcessor:
         self.input_key = self.data.get('input_key')
         self.output_key = self.data.get('output_key')
         self.args = self.data.get('args', {})
+        
+        # Get bucket configs from payload first, then fall back to environment variables
+        self.input_bucket = job_def.get('input_bucket') or INPUT_BUCKET
+        self.output_bucket = job_def.get('output_bucket') or OUTPUT_BUCKET
+        self.model_bucket = job_def.get('model_bucket') or MODEL_BUCKET
     
     def validate(self):
         """Validate job configuration"""
@@ -316,19 +322,19 @@ class TranscribeProcessor:
             logger.info(f"Job started at {datetime.now().isoformat()}")
             logger.info(f"Operation: {self.operation_type}")
             logger.info(f"Compute type: {COMPUTE_TYPE}")
-            logger.info(f"Input: s3://{INPUT_BUCKET}/{self.input_key}")
-            logger.info(f"Output: s3://{OUTPUT_BUCKET}/{self.output_key}")
+            logger.info(f"Input: s3://{self.input_bucket}/{self.input_key}")
+            logger.info(f"Output: s3://{self.output_bucket}/{self.output_key}")
             
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_input = os.path.join(tmpdir, 'input_file')
                 local_output = os.path.join(tmpdir, 'output_file')
                 
                 logger.info("Downloading audio from S3...")
-                s3_client.download_file(INPUT_BUCKET, self.input_key, local_input)
+                s3_client.download_file(self.input_bucket, self.input_key, local_input)
                 logger.info("Audio downloaded successfully")
                 
                 operation_class = OPERATIONS[self.operation_type]
-                operation = operation_class(self.args)
+                operation = operation_class(self.args, self.model_bucket)
                 result = operation.process(local_input, tmpdir)
                 
                 output_format = self.args.get('output_format', 'json')
@@ -338,7 +344,7 @@ class TranscribeProcessor:
                     f.write(output_text)
                 
                 logger.info("Uploading transcript to S3...")
-                s3_client.upload_file(local_output, OUTPUT_BUCKET, self.output_key)
+                s3_client.upload_file(local_output, self.output_bucket, self.output_key)
                 logger.info("Transcript uploaded successfully")
                 
                 success_result = {

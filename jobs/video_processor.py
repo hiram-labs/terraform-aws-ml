@@ -123,6 +123,10 @@ class FFmpegProcessor:
         self.input_key = self.data.get('input_key')
         self.output_key = self.data.get('output_key')
         self.args = self.data.get('args', {})
+        
+        # Get bucket configs from payload first, then fall back to environment variables
+        self.input_bucket = job_def.get('input_bucket') or INPUT_BUCKET
+        self.output_bucket = job_def.get('output_bucket') or OUTPUT_BUCKET
     
     def validate(self):
         """Validate job configuration"""
@@ -140,15 +144,15 @@ class FFmpegProcessor:
             logger.info(f"Job started at {datetime.now().isoformat()}")
             logger.info(f"Operation: {self.operation_type}")
             logger.info(f"Compute type: {COMPUTE_TYPE}")
-            logger.info(f"Input: s3://{INPUT_BUCKET}/{self.input_key}")
-            logger.info(f"Output: s3://{OUTPUT_BUCKET}/{self.output_key}")
+            logger.info(f"Input: s3://{self.input_bucket}/{self.input_key}")
+            logger.info(f"Output: s3://{self.output_bucket}/{self.output_key}")
             
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_input = os.path.join(tmpdir, 'input_file')
                 local_output = os.path.join(tmpdir, 'output_file')
                 
                 logger.info("Downloading input from S3...")
-                s3_client.download_file(INPUT_BUCKET, self.input_key, local_input)
+                s3_client.download_file(self.input_bucket, self.input_key, local_input)
                 logger.info("Input downloaded successfully")
                 
                 operation_class = OPERATIONS[self.operation_type]
@@ -156,7 +160,7 @@ class FFmpegProcessor:
                 operation.execute(local_input, local_output)
                 
                 logger.info("Uploading output to S3...")
-                s3_client.upload_file(local_output, OUTPUT_BUCKET, self.output_key)
+                s3_client.upload_file(local_output, self.output_bucket, self.output_key)
                 logger.info("Output uploaded successfully")
                 
                 result = {
