@@ -51,12 +51,6 @@ logger = logging.getLogger(__name__)
 
 INPUT_BUCKET = os.environ.get('INPUT_BUCKET')
 OUTPUT_BUCKET = os.environ.get('OUTPUT_BUCKET')
-if not INPUT_BUCKET:
-    raise RuntimeError("INPUT_BUCKET environment variable must be set.")
-if not OUTPUT_BUCKET:
-    raise RuntimeError("OUTPUT_BUCKET environment variable must be set.")
-INPUT_BUCKET = INPUT_BUCKET.rstrip('/') + '/videos'
-OUTPUT_BUCKET = OUTPUT_BUCKET.rstrip('/') + '/audios'
 COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
 
 s3_client = boto3.client('s3')
