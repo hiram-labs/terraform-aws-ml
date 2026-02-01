@@ -265,6 +265,7 @@
           
           let html = '<div class="list-group list-group-flush">';
           history.forEach((job, index) => {
+            const originalIndex = index;
             const timestamp = new Date(job.timestamp).toLocaleString();
             
             // Smart field selection: use form_data for original inputs, payload for derived values
