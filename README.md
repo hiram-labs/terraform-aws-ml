@@ -365,7 +365,7 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
   "data": {
     "script_key": "jobs/cleanup_processor.py",
     "compute_type": "cpu",
-    "operation": "cleanup-cache"
+    "operation": "cleanup_cache"
   }
 }' --region "$AWS_REGION"
 ```
