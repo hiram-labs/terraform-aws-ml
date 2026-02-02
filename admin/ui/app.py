@@ -56,22 +56,22 @@ BUCKETS = {
 }
 
 PRESETS = {
-    "extract-audio": {
+    "extract_audio": {
         "script_key": "jobs/video_processor.py",
         "compute_type": "cpu",
         "operation": "extract_audio",
         "args": {"sample_rate": "16000", "channels": "1", "normalize": "true"}
     },
-    "transcribe-audio": {
+    "transcribe_audio": {
         "script_key": "jobs/transcribe_processor.py",
         "compute_type": "gpu",
         "operation": "transcribe_audio",
         "args": {"language": "en", "output_format": "json", "whisper_model": "guillaumekln/faster-whisper-small.en", "pyannote_model": "pyannote/speaker-diarization-3.1"}
     },
-    "cleanup-cache": {
+    "cleanup_cache": {
         "script_key": "jobs/cleanup_processor.py",
         "compute_type": "cpu",
-        "operation": "cleanup-cache"
+        "operation": "cleanup_cache"
     }
 }
 
