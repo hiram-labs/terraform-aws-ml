@@ -153,11 +153,11 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             zip_local.unlink()
             logger.info(f"Extracted model to {efs_model_path}")
 
-            snapshots_dir = efs_model_path / 'snapshots'
-            if snapshots_dir.exists():
-                snapshot_dirs = list(snapshots_dir.iterdir())
-                if snapshot_dirs:
-                    return str(snapshot_dirs[0])
+        snapshots_dir = efs_model_path / 'snapshots'
+        if snapshots_dir.exists():
+            snapshot_dirs = list(snapshots_dir.iterdir())
+            if snapshot_dirs:
+                return str(snapshot_dirs[0])
             
             raise RuntimeError(f"No snapshot directory found for {model_name}")
     
