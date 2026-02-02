@@ -7,7 +7,7 @@ Clears the EFS model cache to stop storage charges while keeping the cache ready
 Models will be automatically re-downloaded on the next job that uses them.
 
 Supported Operations:
-- cleanup-cache: Remove all cached models from /opt/models
+- cleanup_cache: Remove all cached models from /opt/models
 
 To add new operations:
   1. Create a class inheriting from CleanupOperation
@@ -20,7 +20,7 @@ SNS Trigger Format:
   "data": {
     "script_key": "jobs/cleanup_processor.py",
     "compute_type": "cpu",
-    "operation": "cleanup-cache"
+    "operation": "cleanup_cache"
   }
 }
 """
@@ -103,7 +103,7 @@ class ClearModelCacheOperation(CleanupOperation):
 
 # Registry of available operations
 OPERATIONS: Dict[str, type] = {
-    'cleanup-cache': ClearModelCacheOperation,
+    'cleanup_cache': ClearModelCacheOperation,
 }
 
 
@@ -113,7 +113,7 @@ class CleanupProcessor:
     def __init__(self, job_def: Dict):
         self.job_def = job_def
         self.data = job_def.get('data', {})
-        self.operation_type = self.data.get('operation', 'cleanup-cache')
+        self.operation_type = self.data.get('operation', 'cleanup_cache')
         self.args = self.data.get('args', {})
     
     def validate(self):
