@@ -355,20 +355,26 @@ See code comments for examples.
 
 The EFS file system caches downloaded models to avoid repeated downloads across batch jobs. Models are automatically downloaded and cached on the first job run.
 
-To clear the EFS cache when not running batch jobs (to save costs), use these AWS CLI commands:
+To clear cached model files (stop EFS storage charges) while keeping the cache ready for reuse, trigger the cleanup job:
 
 ```bash
-# Get EFS file system ID
-EFS_ID=$(aws efs describe-file-systems --query "FileSystems[?Name=='${PROJECT_NAME}-model-cache'].FileSystemId" --output text)
+TOPIC_ARN=$(terraform output -raw trigger_events_topic_arn)
 
-# List cached models
-aws efs describe-file-systems --file-system-id $EFS_ID
-
-# Clear all cached models (irreversible - models will be redownloaded on next job)
-aws efs delete-file-system --file-system-id $EFS_ID
+aws sns publish --topic-arn "$TOPIC_ARN" --message '{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/cleanup_processor.py",
+    "compute_type": "cpu",
+    "operation": "cleanup-cache"
+  }
+}' --region "$AWS_REGION"
 ```
 
-**Note:** EFS costs are incurred only when data is stored. Clearing the cache will not affect Terraform state - the EFS will be recreated on the next `terraform apply` if needed.
+The cleanup job will:
+- Delete all cached models from `/opt/models`
+- Log the freed space
+- Keep the EFS and mount targets intact for reuse
+- Models auto-download on the next job that needs them
 
 ### Full Infrastructure Cleanup
 

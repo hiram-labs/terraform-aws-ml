@@ -67,6 +67,11 @@ PRESETS = {
         "compute_type": "gpu",
         "operation": "transcribe_audio",
         "args": {"language": "en", "output_format": "json", "whisper_model": "guillaumekln/faster-whisper-small.en", "pyannote_model": "pyannote/speaker-diarization-3.1"}
+    },
+    "cleanup-cache": {
+        "script_key": "jobs/cleanup_processor.py",
+        "compute_type": "cpu",
+        "operation": "cleanup-cache"
     }
 }
 

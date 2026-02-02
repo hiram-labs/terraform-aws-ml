@@ -6,6 +6,7 @@ Usage:
     python scripts/trigger_jobs.py --topic-arn <SNS_TOPIC_ARN> --data '{"input_key": "path/to/input.mp4"}'
     python scripts/trigger_jobs.py --preset extract-audio --data '{"input_key": "path/to/input.mp4"}'
     python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "path/to/input.wav"}'
+    python scripts/trigger_jobs.py --preset cleanup-cache
 
 Environment Variables:
     TRIGGER_EVENTS_TOPIC_ARN, AWS_PROFILE, AWS_REGION (optional)
@@ -28,7 +29,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Trigger jobs by publishing to SNS')
     parser.add_argument('--topic-arn', default=os.getenv('TRIGGER_EVENTS_TOPIC_ARN'), help='SNS topic ARN (or set TRIGGER_EVENTS_TOPIC_ARN env var)')
     parser.add_argument('--data', help='Path to JSON file or JSON string for the SNS message data field')
-    parser.add_argument('--preset', choices=['extract-audio', 'transcribe-audio'], help='Use a preset job payload (extends --data)')
+    parser.add_argument('--preset', choices=['extract-audio', 'transcribe-audio', 'cleanup-cache'], help='Use a preset job payload (extends --data)')
     parser.add_argument('--trigger-type', default='batch_job', help='Override trigger_type (default: batch_job)')
     parser.add_argument('--input-bucket', help='S3 bucket for input data')
     parser.add_argument('--output-bucket', help='S3 bucket for output results')
@@ -78,6 +79,17 @@ def build_transcribe_audio_payload(override=None):
     return base
 
 
+def build_cleanup_cache_payload(override=None):
+    base = {
+        "script_key": "jobs/cleanup_processor.py",
+        "compute_type": "cpu",
+        "operation": "cleanup-cache"
+    }
+    if override:
+        base.update(override)
+    return base
+
+
 def load_json_arg(arg):
     if os.path.isfile(arg):
         with open(arg, 'r') as f:
@@ -92,6 +104,9 @@ def load_data(args):
     elif args.preset == 'transcribe-audio':
         override = load_json_arg(args.data) if args.data else None
         return build_transcribe_audio_payload(override)
+    elif args.preset == 'cleanup-cache':
+        override = load_json_arg(args.data) if args.data else None
+        return build_cleanup_cache_payload(override)
     if args.data:
         return load_json_arg(args.data)
     raise ValueError("Either --data or --preset must be provided.")
