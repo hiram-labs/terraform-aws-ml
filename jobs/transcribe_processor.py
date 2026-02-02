@@ -153,15 +153,12 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             zip_local.unlink()
             logger.info(f"Extracted model to {efs_model_path}")
 
-        if model_type == 'whisper':
-            snapshots_dir = efs_model_path / 'snapshots'
-            if snapshots_dir.exists():
-                snapshot_dirs = list(snapshots_dir.iterdir())
-                if snapshot_dirs:
-                    return str(snapshot_dirs[0])
-            raise RuntimeError(f"No snapshot directory found for whisper model {model_name}")
-        else:
-            return str(efs_model_path)
+        snapshots_dir = efs_model_path / 'snapshots'
+        if snapshots_dir.exists():
+            snapshot_dirs = list(snapshots_dir.iterdir())
+            if snapshot_dirs:
+                return str(snapshot_dirs[0])
+        raise RuntimeError(f"No snapshot directory found for whisper model {model_name}")
     
     def _transcribe_audio(self, audio_file: str, model_path: str, language: str = 'en', compute_type: str = 'cpu') -> List[Dict]:
         """Transcribe audio using Faster-Whisper with local model"""
@@ -186,7 +183,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         """Identify speakers using pyannote model from S3"""
         logger.info(f"Loading pyannote model from: {model_path}")
         
-        pipeline = Pipeline.from_pretrained(model_path, use_auth_token=None, cache_dir=None)
+        pipeline = Pipeline.from_pretrained(Path(model_path))
         
         if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
             pipeline = pipeline.to(torch.device('cuda'))
