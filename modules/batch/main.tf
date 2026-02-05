@@ -377,8 +377,8 @@ resource "aws_cloudwatch_log_group" "batch_jobs_log_group" {
 ###############################################################
 # Batch Job Definition - Python ML Workload (GPU)             #
 ###############################################################
-resource "aws_batch_job_definition" "ml_python_job" {
-  name = "${var.project_name}-ml-python-gpu-job"
+resource "aws_batch_job_definition" "ml_gpu_job" {
+  name = "${var.project_name}-ml-gpu-job"
   type = "container"
 
   platform_capabilities = ["EC2"]
@@ -598,8 +598,8 @@ resource "aws_batch_job_queue" "cpu_job_queue" {
 ###############################################################
 # Batch Job Definition - CPU (No GPU)                         #
 ###############################################################
-resource "aws_batch_job_definition" "ml_python_cpu_job" {
-  name = "${var.project_name}-ml-python-cpu-job"
+resource "aws_batch_job_definition" "ml_cpu_job" {
+  name = "${var.project_name}-ml-cpu-job"
   type = "container"
 
   platform_capabilities = ["EC2"]

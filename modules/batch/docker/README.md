@@ -22,7 +22,7 @@ This directory contains Docker images for AWS Batch jobs.
 - PyTorch/TensorFlow
 - Heavy ML frameworks
 
-### ml-python-slim (Recommended for quick GPU testing)
+### gpu-slim (Recommended for quick GPU testing)
 
 **Size:** ~2-3GB  
 **Build Time:** ~5-10 minutes  
@@ -37,21 +37,6 @@ This directory contains Docker images for AWS Batch jobs.
 - pyannote.audio for speaker diarization
 - boto3 for S3 access
 
-### ml-python (Full GPU-enabled)
-
-**Size:** ~12GB  
-**Build Time:** ~15-20 minutes  
-**Use Case:** GPU training, deep learning inference, heavy workloads
-
-**Includes:**
-- Everything from slim, plus:
-- CUDA 12.1 + cuDNN 8
-- PyTorch 2.1 (with CUDA support)
-- TensorFlow 2.15
-- XGBoost, LightGBM
-- Transformers, Accelerate, Datasets
-- TensorBoard, Weights & Biases, MLflow
-
 ## Building Images
 
 ### Quick Start - Build CPU Slim Image (Fastest)
@@ -65,14 +50,14 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python-slim
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline cpu-slim-slim
 ```
 
 ### Build Full GPU Image
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline cpu-slim
 ```
 
 ### Build All Images
@@ -114,11 +99,11 @@ Then rebuild:
 
 ### Modifying GPU Slim Image
 
-Edit `Dockerfile.ml-python-slim` similarly and rebuild with `ml-python-slim` option.
+Edit `Dockerfile.cpu-slim` similarly and rebuild with `cpu-slim` option.
 
 ### Modifying Full GPU Image
 
-Edit `Dockerfile.ml-python` similarly and rebuild with `ml-python` option.
+Edit `Dockerfile.cpu-slim` similarly and rebuild with `cpu-slim` option.
 
 ## Tips
 

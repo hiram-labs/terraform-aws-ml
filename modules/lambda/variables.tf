@@ -43,7 +43,7 @@ variable "batch_job_queue_arn" {
   type        = string
 }
 
-variable "ml_python_job_definition_name" {
+variable "ml_gpu_job_definition_name" {
   description = "Name of the ML Python job definition"
   type        = string
 }
@@ -53,7 +53,7 @@ variable "cpu_job_queue_name" {
   type        = string
 }
 
-variable "ml_python_cpu_job_definition_name" {
+variable "ml_cpu_job_definition_name" {
   description = "Name of the ML Python CPU job definition"
   type        = string
 }

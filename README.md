@@ -81,7 +81,7 @@ Heavy container with CUDA, TensorFlow 2.15, PyTorch 2.1 - for GPU training/infer
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME ml-python
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME cpu-slim
 cd $OLDPWD
 
 # Copy the ECR URI from output

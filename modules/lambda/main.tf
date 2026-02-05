@@ -3,7 +3,7 @@
 ###############################################################
 resource "aws_sqs_queue" "ml_trigger_dlq" {
   name                      = "${var.project_name}-ml-trigger-dlq"
-  message_retention_seconds = 1209600  # 14 days
+  message_retention_seconds = 1209600 # 14 days
 
   tags = var.common_tags
 }
@@ -130,21 +130,21 @@ resource "aws_lambda_function" "trigger_dispatcher" {
 
   environment {
     variables = {
-      BATCH_JOB_QUEUE              = var.batch_job_queue_name
-      ML_PYTHON_JOB_DEFINITION     = var.ml_python_job_definition_name
-      CPU_JOB_QUEUE                = var.cpu_job_queue_name
-      ML_PYTHON_CPU_JOB_DEFINITION = var.ml_python_cpu_job_definition_name
-      ML_INPUT_BUCKET              = var.ml_input_bucket
-      ML_OUTPUT_BUCKET             = var.ml_output_bucket
-      ML_MODELS_BUCKET             = var.ml_models_bucket
-      ENABLE_NOTIFICATIONS         = var.enable_notifications
-      SNS_TOPIC_ARN                = var.notifications_topic_arn
-      DLQ_URL                      = aws_sqs_queue.ml_trigger_dlq.id
-      DEFAULT_GPU_VCPUS            = var.default_gpu_vcpus
-      DEFAULT_GPU_MEMORY           = var.default_gpu_memory
-      DEFAULT_GPU_GPUS             = var.default_gpu_gpus
-      DEFAULT_CPU_VCPUS            = var.default_cpu_vcpus
-      DEFAULT_CPU_MEMORY           = var.default_cpu_memory
+      BATCH_JOB_QUEUE       = var.batch_job_queue_name
+      ml_gpu_job_DEFINITION = var.ml_gpu_job_definition_name
+      CPU_JOB_QUEUE         = var.cpu_job_queue_name
+      ml_cpu_job_DEFINITION = var.ml_cpu_job_definition_name
+      ML_INPUT_BUCKET       = var.ml_input_bucket
+      ML_OUTPUT_BUCKET      = var.ml_output_bucket
+      ML_MODELS_BUCKET      = var.ml_models_bucket
+      ENABLE_NOTIFICATIONS  = var.enable_notifications
+      SNS_TOPIC_ARN         = var.notifications_topic_arn
+      DLQ_URL               = aws_sqs_queue.ml_trigger_dlq.id
+      DEFAULT_GPU_VCPUS     = var.default_gpu_vcpus
+      DEFAULT_GPU_MEMORY    = var.default_gpu_memory
+      DEFAULT_GPU_GPUS      = var.default_gpu_gpus
+      DEFAULT_CPU_VCPUS     = var.default_cpu_vcpus
+      DEFAULT_CPU_MEMORY    = var.default_cpu_memory
     }
   }
 
@@ -163,9 +163,9 @@ resource "aws_lambda_function" "trigger_dispatcher" {
 # SNS Subscription to Lambda                                  #
 ###############################################################
 resource "aws_sns_topic_subscription" "lambda_trigger_dispatcher" {
-  topic_arn            = var.trigger_events_topic_arn
-  protocol             = "lambda"
-  endpoint             = aws_lambda_function.trigger_dispatcher.arn
+  topic_arn = var.trigger_events_topic_arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.trigger_dispatcher.arn
 }
 
 ###############################################################

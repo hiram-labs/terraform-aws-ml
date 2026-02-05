@@ -13,14 +13,14 @@ output "batch_job_queue_name" {
   value       = aws_batch_job_queue.ml_job_queue.name
 }
 
-output "ml_python_job_definition_arn" {
+output "ml_gpu_job_definition_arn" {
   description = "ARN of the ML Python job definition"
-  value       = aws_batch_job_definition.ml_python_job.arn
+  value       = aws_batch_job_definition.ml_gpu_job.arn
 }
 
-output "ml_python_job_definition_name" {
+output "ml_gpu_job_definition_name" {
   description = "Name of the ML Python job definition"
-  value       = aws_batch_job_definition.ml_python_job.name
+  value       = aws_batch_job_definition.ml_gpu_job.name
 }
 
 output "batch_job_role_arn" {
@@ -61,12 +61,12 @@ output "cpu_job_queue_name" {
   value       = aws_batch_job_queue.cpu_job_queue.name
 }
 
-output "ml_python_cpu_job_definition_arn" {
+output "ml_cpu_job_definition_arn" {
   description = "ARN of the ML Python CPU job definition"
-  value       = aws_batch_job_definition.ml_python_cpu_job.arn
+  value       = aws_batch_job_definition.ml_cpu_job.arn
 }
 
-output "ml_python_cpu_job_definition_name" {
+output "ml_cpu_job_definition_name" {
   description = "Name of the ML Python CPU job definition"
-  value       = aws_batch_job_definition.ml_python_cpu_job.name
+  value       = aws_batch_job_definition.ml_cpu_job.name
 }

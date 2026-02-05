@@ -94,14 +94,14 @@ output "batch_job_queue_arn" {
   value       = module.batch.batch_job_queue_arn
 }
 
-output "ml_python_job_definition" {
+output "ml_gpu_job_definition" {
   description = "Batch job definition for Python ML scripts"
-  value       = module.batch.ml_python_job_definition_name
+  value       = module.batch.ml_gpu_job_definition_name
 }
 
-output "ml_python_job_definition_arn" {
+output "ml_gpu_job_definition_arn" {
   description = "ARN of the Python job definition"
-  value       = module.batch.ml_python_job_definition_arn
+  value       = module.batch.ml_gpu_job_definition_arn
 }
 
 ###############################################################
@@ -163,9 +163,9 @@ output "lambda_execution_role_arn" {
 output "quick_start_commands" {
   description = "Quick start commands for using the ML pipeline"
   value = {
-    publish_trigger = "aws sns publish --topic-arn '${module.lambda.trigger_events_topic_arn}' --message '{\"trigger_type\": \"batch_job\", \"data\": {\"script_key\": \"jobs/train.py\"}, \"metadata\": {\"user\": \"data-scientist\"}}'  "
-    view_logs       = "aws logs tail /aws/lambda/${var.project_name}-ml-trigger-dispatcher --follow"
-    check_dlq       = "aws sqs receive-message --queue-url '${module.lambda.trigger_dlq_url}'"
+    publish_trigger  = "aws sns publish --topic-arn '${module.lambda.trigger_events_topic_arn}' --message '{\"trigger_type\": \"batch_job\", \"data\": {\"script_key\": \"jobs/train.py\"}, \"metadata\": {\"user\": \"data-scientist\"}}'  "
+    view_logs        = "aws logs tail /aws/lambda/${var.project_name}-ml-trigger-dispatcher --follow"
+    check_dlq        = "aws sqs receive-message --queue-url '${module.lambda.trigger_dlq_url}'"
     download_results = "aws s3 sync s3://${module.s3.ml_output_bucket_name}/results/ ./results/"
   }
 }

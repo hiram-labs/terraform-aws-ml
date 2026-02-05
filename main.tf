@@ -105,25 +105,25 @@ module "batch" {
 module "lambda" {
   source = "./modules/lambda"
 
-  project_name                      = var.project_name
-  trigger_events_topic_arn          = module.sns.trigger_events_topic_arn
-  notifications_topic_arn           = module.sns.notifications_topic_arn
-  ml_input_bucket                   = module.s3.ml_input_bucket_name
-  ml_output_bucket                  = module.s3.ml_output_bucket_name
-  ml_output_bucket_arn              = module.s3.ml_output_bucket_arn
-  ml_models_bucket                  = module.s3.ml_models_bucket_name
-  batch_job_queue_name              = module.batch.batch_job_queue_name
-  batch_job_queue_arn               = module.batch.batch_job_queue_arn
-  ml_python_job_definition_name     = module.batch.ml_python_job_definition_name
-  cpu_job_queue_name                = module.batch.cpu_job_queue_name
-  ml_python_cpu_job_definition_name = module.batch.ml_python_cpu_job_definition_name
-  enable_notifications              = var.enable_ml_notifications
-  enable_job_monitoring             = var.enable_ml_job_monitoring
-  log_retention_days                = var.log_retention_days
-  default_gpu_vcpus                 = var.ml_gpu_job_vcpus
-  default_gpu_memory                = var.ml_gpu_job_memory
-  default_gpu_gpus                  = var.ml_gpu_job_gpus
-  default_cpu_vcpus                 = var.ml_cpu_job_vcpus
-  default_cpu_memory                = var.ml_cpu_job_memory
-  common_tags                       = local.common_tags
+  project_name               = var.project_name
+  trigger_events_topic_arn   = module.sns.trigger_events_topic_arn
+  notifications_topic_arn    = module.sns.notifications_topic_arn
+  ml_input_bucket            = module.s3.ml_input_bucket_name
+  ml_output_bucket           = module.s3.ml_output_bucket_name
+  ml_output_bucket_arn       = module.s3.ml_output_bucket_arn
+  ml_models_bucket           = module.s3.ml_models_bucket_name
+  batch_job_queue_name       = module.batch.batch_job_queue_name
+  batch_job_queue_arn        = module.batch.batch_job_queue_arn
+  ml_gpu_job_definition_name = module.batch.ml_gpu_job_definition_name
+  cpu_job_queue_name         = module.batch.cpu_job_queue_name
+  ml_cpu_job_definition_name = module.batch.ml_cpu_job_definition_name
+  enable_notifications       = var.enable_ml_notifications
+  enable_job_monitoring      = var.enable_ml_job_monitoring
+  log_retention_days         = var.log_retention_days
+  default_gpu_vcpus          = var.ml_gpu_job_vcpus
+  default_gpu_memory         = var.ml_gpu_job_memory
+  default_gpu_gpus           = var.ml_gpu_job_gpus
+  default_cpu_vcpus          = var.ml_cpu_job_vcpus
+  default_cpu_memory         = var.ml_cpu_job_memory
+  common_tags                = local.common_tags
 }

@@ -43,7 +43,7 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   type        = list(string)
   description = "List of availability zones for subnet deployment"
-  default     = []  # Will use first 2 AZs in region if not specified
+  default     = [] # Will use first 2 AZs in region if not specified
 }
 
 ###############################################################
