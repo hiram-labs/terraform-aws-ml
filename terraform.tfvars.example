@@ -22,7 +22,7 @@ aws_region   = "us-east-1"
 # CONTAINER IMAGE                                             #
 ###############################################################
 
-ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python-slim:latest"
+ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-cpu-slim:latest"
 
 ###############################################################
 # GPU COMPUTE ENVIRONMENT                                     #

@@ -6,7 +6,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Python 3.11
 RUN apt-get update && apt-get install -y \
     python3.11 \
     python3.11-distutils \
@@ -15,7 +14,6 @@ RUN apt-get update && apt-get install -y \
 
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
-# FFmpeg + build deps (IMPORTANT)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libavcodec-dev \
@@ -32,18 +30,16 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip for better dependency resolution
 RUN python3 -m pip install --upgrade pip
 
-COPY requirements.txt /tmp/
-RUN pip3 install -r /tmp/requirements.txt
+COPY requirements.base.txt requirements.gpu.txt /tmp/
+RUN pip3 install -r /tmp/requirements.gpu.txt
 
 WORKDIR /workspace
 
 COPY entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Validate all imports work, then remove test script
 COPY test-imports.py /tmp/
 RUN python3 /tmp/test-imports.py && rm /tmp/test-imports.py
 

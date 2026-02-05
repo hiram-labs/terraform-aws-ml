@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --upgrade pip
+
+COPY requirements.base.txt requirements.cpu.txt /tmp/
+RUN pip3 install -r /tmp/requirements.cpu.txt
+
+WORKDIR /workspace
+
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+COPY test-imports.py /tmp/
+RUN python3 /tmp/test-imports.py && rm /tmp/test-imports.py
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["python3"]

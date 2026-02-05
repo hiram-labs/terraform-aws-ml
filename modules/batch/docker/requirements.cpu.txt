@@ -1,0 +1,7 @@
+# CPU-only dependencies (no GPU/CUDA required)
+
+# Base dependencies
+-r requirements.base.txt
+
+# Audio/Video Processing
+pydub>=0.25.1

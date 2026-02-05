@@ -4,31 +4,44 @@ This directory contains Docker images for AWS Batch jobs.
 
 ## Available Images
 
-### ml-python-slim (Recommended for quick testing)
+### cpu-slim (Recommended for CPU processing)
 
 **Size:** ~500MB  
 **Build Time:** ~2 minutes  
-**Use Case:** CPU processing, data pipelines, testing
+**Use Case:** CPU processing, video/audio handling, data pipelines, testing
 
 **Includes:**
 - Python 3.11
 - FFmpeg for video/audio processing
-- PyTorch CPU (minimal)
-- faster-whisper for transcription
-- pyannote.audio for speaker diarization
 - boto3 for S3 access
+- Minimal dependencies
 
 **Does NOT include:**
 - CUDA drivers
-- TensorFlow
 - GPU support
-- Data science libraries (removed for minimal size)
+- PyTorch/TensorFlow
+- Heavy ML frameworks
+
+### ml-python-slim (Recommended for quick GPU testing)
+
+**Size:** ~2-3GB  
+**Build Time:** ~5-10 minutes  
+**Use Case:** GPU inference, fast training, transcription jobs
+
+**Includes:**
+- CUDA 12.1 + cuDNN 8
+- Python 3.11
+- FFmpeg for video/audio processing
+- PyTorch 2.1 (GPU)
+- faster-whisper for transcription
+- pyannote.audio for speaker diarization
+- boto3 for S3 access
 
 ### ml-python (Full GPU-enabled)
 
 **Size:** ~12GB  
 **Build Time:** ~15-20 minutes  
-**Use Case:** GPU training, deep learning inference
+**Use Case:** GPU training, deep learning inference, heavy workloads
 
 **Includes:**
 - Everything from slim, plus:
@@ -41,16 +54,18 @@ This directory contains Docker images for AWS Batch jobs.
 
 ## Building Images
 
-### Quick Start - Build Only Slim Image
+### Quick Start - Build CPU Slim Image (Fastest)
+
+```bash
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline cpu-slim
+```
+
+### Build GPU Slim Image (Recommended for GPU jobs)
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python-slim
-```
-
-**Output:**
-```
-ECR URI: 123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python-slim:latest
 ```
 
 ### Build Full GPU Image
@@ -72,7 +87,7 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 Update `terraform.tfvars` with the ECR URI:
 
 ```hcl
-ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-ml-python-slim:latest"
+ml_container_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-cpu-slim:latest"
 ```
 
 Then run:
@@ -83,19 +98,23 @@ terraform apply
 
 ## Customization
 
-### Modifying Slim Image
+### Modifying CPU Slim Image
 
-Edit `Dockerfile.ml-python-slim` to add more Python packages:
+Edit `Dockerfile.cpu-slim` to add more Python packages:
 
 ```dockerfile
-RUN pip3 install additional-library
+RUN pip3 install numpy pandas requests
 ```
 
 Then rebuild:
 
 ```bash
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline ml-python-slim
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline cpu-slim
 ```
+
+### Modifying GPU Slim Image
+
+Edit `Dockerfile.ml-python-slim` similarly and rebuild with `ml-python-slim` option.
 
 ### Modifying Full GPU Image
 
@@ -110,6 +129,6 @@ Edit `Dockerfile.ml-python` similarly and rebuild with `ml-python` option.
 - **Testing locally:** You can test the image locally before pushing to ECR:
 
 ```bash
-docker build -f Dockerfile.ml-python-slim -t my-test-image:latest .
+docker build -f Dockerfile.cpu-slim -t my-test-image:latest .
 docker run --rm -it my-test-image:latest python3 --version
 ```

@@ -6,8 +6,7 @@
 #   ./build-and-push.sh <region> <account_id> <project>                 #
 #                                                                       #
 # Optional: Specify which image to build                                #
-#   ./build-and-push.sh <region> <account_id> <project> ml-python-slim  #
-#   ./build-and-push.sh <region> <account_id> <project> ml-python       #
+#   ./build-and-push.sh <region> <account_id> <project> cpu-slim  #
 #   ./build-and-push.sh <region> <account_id> <project> # builds all    #
 #########################################################################
 
@@ -24,8 +23,7 @@ if [ -z "$ACCOUNT_ID" ]; then
     echo "Usage: $0 <region> <account_id> <project_name> [dockerfile_name]"
     echo ""
     echo "Examples:"
-    echo "  $0 us-east-1 123456789012 ml-pipeline ml-python-slim"
-    echo "  $0 us-east-1 123456789012 ml-pipeline ml-python"
+    echo "  $0 us-east-1 123456789012 ml-pipeline cpu-slim"
     echo "  $0 us-east-1 123456789012 ml-pipeline     # builds all"
     exit 1
 fi
