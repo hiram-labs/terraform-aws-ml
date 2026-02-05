@@ -83,10 +83,13 @@ class ClearModelCacheOperation(CleanupOperation):
         size_mb = total_size / (1024 * 1024)
         logger.info(f"Total cache size: {size_mb:.2f} MB ({file_count} files)")
         
-        # Remove all contents
+        # Remove all contents (but not the directory itself, as it may be a mount point)
         try:
-            shutil.rmtree(cache_dir)
-            cache_dir.mkdir(parents=True, exist_ok=True)
+            for item in cache_dir.iterdir():
+                if item.is_file():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
             logger.info(f"Successfully cleared cache - freed {size_mb:.2f} MB")
         except Exception as e:
             logger.error(f"Failed to clear cache: {str(e)}")
