@@ -106,9 +106,9 @@ class BatchJobTrigger(BaseTrigger):
         
         # Environment variables from Lambda
         self.gpu_job_queue = os.environ['BATCH_JOB_QUEUE']
-        self.gpu_job_definition = os.environ['ML_PYTHON_JOB_DEFINITION']
+        self.gpu_job_definition = os.environ['ml_gpu_job_DEFINITION']
         self.cpu_job_queue = os.environ.get('CPU_JOB_QUEUE', '')
-        self.cpu_job_definition = os.environ.get('ML_PYTHON_CPU_JOB_DEFINITION', '')
+        self.cpu_job_definition = os.environ.get('ml_cpu_job_DEFINITION', '')
         self.output_bucket = os.environ['ML_OUTPUT_BUCKET']
         self.input_bucket = os.environ.get('ML_INPUT_BUCKET', '')
         self.models_bucket = os.environ.get('ML_MODELS_BUCKET', '')
