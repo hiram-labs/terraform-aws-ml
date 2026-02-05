@@ -87,6 +87,7 @@ async def index(request: Request):
 @app.post("/preview", response_class=JSONResponse)
 async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form(None),
                   input_key: Optional[str] = Form(None), output_key: Optional[str] = Form(None),
+                  container_image: Optional[str] = Form(None),
                   input_bucket: Optional[str] = Form(None), output_bucket: Optional[str] = Form(None), model_bucket: Optional[str] = Form(None)):
     # Build base data
     if preset:
@@ -108,6 +109,8 @@ async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form
         base["input_key"] = input_key
     if output_key:
         base["output_key"] = output_key
+    if container_image:
+        base["container_image"] = container_image
 
     # Always append timestamp to output_key if present
     if 'output_key' in base:
@@ -136,6 +139,7 @@ async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form
 @app.post("/publish", response_class=JSONResponse)
 async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] = Form(None), data: Optional[str] = Form(None),
                   input_key: Optional[str] = Form(None), output_key: Optional[str] = Form(None),
+                  container_image: Optional[str] = Form(None),
                   input_bucket: Optional[str] = Form(None), output_bucket: Optional[str] = Form(None), model_bucket: Optional[str] = Form(None)):
     # Determine topic
     topic = topic_arn or DEFAULT_TOPIC_ARN
@@ -144,6 +148,7 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
 
     # Reuse preview builder
     preview_resp = await preview(preset=preset, data=data, input_key=input_key, output_key=output_key,
+                                 container_image=container_image,
                                  input_bucket=input_bucket, output_bucket=output_bucket, model_bucket=model_bucket)
     if isinstance(preview_resp, JSONResponse) and preview_resp.status_code != 200:
         return preview_resp
@@ -168,6 +173,7 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
                 "script_key": payload.get('data', {}).get('script_key', 'unknown'),
                 "input_key": input_key,
                 "output_key": output_key,
+                "container_image": container_image,
                 "input_bucket": input_bucket,
                 "output_bucket": output_bucket,
                 "model_bucket": model_bucket
@@ -195,6 +201,7 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
                 "script_key": payload.get('data', {}).get('script_key', 'unknown'),
                 "input_key": input_key,
                 "output_key": output_key,
+                "container_image": container_image,
                 "input_bucket": input_bucket,
                 "output_bucket": output_bucket,
                 "model_bucket": model_bucket
@@ -219,16 +226,18 @@ async def get_history():
 
 
 @app.post("/history/delete", response_class=JSONResponse)
-async def delete_history_entry(index: int = Form(...)):
-    """Delete a single history entry by index"""
+async def delete_history_entry(timestamp: str = Form(...)):
+    """Delete a history entry by timestamp"""
     history = load_history()
 
-    if index < 0 or index >= len(history):
-        return JSONResponse({"error": "Invalid history index"}, status_code=400)
+    # Find and remove entry by timestamp
+    for i, entry in enumerate(history):
+        if entry.get('timestamp') == timestamp:
+            history.pop(i)
+            save_history(history)
+            return JSONResponse({"status": "ok"})
 
-    history.pop(index)
-    save_history(history)
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({"error": "History entry not found"}, status_code=404)
 
 
 @app.post("/logs/tail", response_class=JSONResponse)

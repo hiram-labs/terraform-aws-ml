@@ -69,7 +69,7 @@ Minimal Python 3.11 with FFmpeg, PyTorch CPU, faster-whisper, and pyannote.audio
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME ml-python-slim
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME cpu-slim
 cd $OLDPWD
 
 # Copy the ECR URI from output
@@ -232,6 +232,8 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
   "trigger_type": "batch_job",
   "data": {
     "script_key": "jobs/gpu_processing.py",
+    "compute_type": "gpu",
+    "container_image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/gpu-optimized:latest",
     "vcpus": 16,
     "memory": 65536,
     "gpus": 4
@@ -258,7 +260,7 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
     "user": "ml-engineer",
     "project": "data-pipeline"
   }
-}'
+}' --region "$AWS_REGION"
 ```
 
 ### CPU Job (Custom Resources)
@@ -271,6 +273,7 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
   "data": {
     "script_key": "jobs/cpu_processing.py",
     "compute_type": "cpu",
+    "container_image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/cpu-optimized:latest",
     "vcpus": 8,
     "memory": 16384
   },
@@ -278,7 +281,7 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
     "user": "ml-engineer",
     "project": "data-pipeline"
   }
-}'
+}' --region "$AWS_REGION"
 ```
 
 ## Monitoring

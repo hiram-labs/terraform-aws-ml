@@ -31,6 +31,7 @@ def parse_arguments():
     parser.add_argument('--data', help='Path to JSON file or JSON string for the SNS message data field')
     parser.add_argument('--preset', choices=['extract_audio', 'transcribe_audio', 'cleanup_cache'], help='Use a preset job payload (extends --data)')
     parser.add_argument('--trigger-type', default='batch_job', help='Override trigger_type (default: batch_job)')
+    parser.add_argument('--container-image', help='Override the default container image for the job')
     parser.add_argument('--input-bucket', help='S3 bucket for input data')
     parser.add_argument('--output-bucket', help='S3 bucket for output results')
     parser.add_argument('--model-bucket', help='S3 bucket for ML models')
@@ -121,6 +122,11 @@ def main():
     session = boto3.Session(region_name=args.region)
     sns_client = session.client('sns')
     data = load_data(args)
+    
+    # Add container image override if provided
+    if args.container_image:
+        data['container_image'] = args.container_image
+    
     payload = {
         "trigger_type": args.trigger_type,
         "data": data,

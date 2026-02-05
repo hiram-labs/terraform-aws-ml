@@ -154,6 +154,12 @@
         </div>
 
         <div class="mb-3">
+          <label class="form-label">Container Image (optional)</label>
+          <input class="form-control" name="container_image" id="container_image" placeholder="123456789012.dkr.ecr.us-east-1.amazonaws.com/my-ml:latest">
+          <small class="form-text text-muted">Override the default container image for the job</small>
+        </div>
+
+        <div class="mb-3">
           <label class="form-label">Preset</label>
           <select class="form-select" name="preset" id="preset">
             <option value="">-- none --</option>
@@ -296,7 +302,7 @@
                   <div class="history-badge-group">
                     ${statusBadge}
                     <button class="badge bg-info border-0" type="button" data-logs-timestamp="${job.timestamp}">Logs</button>
-                    <button class="badge bg-danger border-0" type="button" data-history-index="${originalIndex}">Delete</button>
+                    <button class="badge bg-danger border-0" type="button" data-delete-timestamp="${job.timestamp}">Delete</button>
                   </div>
                 </div>
 
@@ -330,10 +336,10 @@
           
           document.getElementById('history-container').innerHTML = html;
 
-          document.querySelectorAll('[data-history-index]').forEach((btn) => {
+          document.querySelectorAll('[data-delete-timestamp]').forEach((btn) => {
             btn.addEventListener('click', async (e) => {
-              const index = e.currentTarget.getAttribute('data-history-index');
-              await deleteHistoryEntry(index);
+              const timestamp = e.currentTarget.getAttribute('data-delete-timestamp');
+              await deleteHistoryEntry(timestamp);
             });
           });
 
@@ -348,13 +354,13 @@
         }
       }
 
-      async function deleteHistoryEntry(index) {
+      async function deleteHistoryEntry(timestamp) {
         if (!confirm('Delete this history entry?')) {
           return;
         }
 
         try {
-          const form = new URLSearchParams({ index });
+          const form = new URLSearchParams({ timestamp });
           const resp = await fetch('/history/delete', { method: 'POST', body: form });
           const json = await resp.json();
           document.getElementById('output').textContent = JSON.stringify(json, null, 2);

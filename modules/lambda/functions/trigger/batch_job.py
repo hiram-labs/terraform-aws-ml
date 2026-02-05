@@ -34,6 +34,7 @@ class BatchJobTrigger(BaseTrigger):
     - memory: Memory in MB (default: 16384 for GPU, 4096 for CPU)
     - gpus: Number of GPUs (default: 1, only for GPU compute_type)
     - timeout: Job timeout in seconds (default: 3600)
+    - container_image: Custom Docker image (overrides default job definition image)
     - additional_env: Dict of additional environment variables
     - job_name: Custom job name (auto-generated if not provided)
     
@@ -95,6 +96,7 @@ class BatchJobTrigger(BaseTrigger):
         "memory": None,  # Determined by compute_type
         "gpus": None,  # Determined by compute_type (1 for GPU, 0 for CPU)
         "timeout": 3600,
+        "container_image": None,  # Override default container image
         "additional_env": {},
         "job_name": None
     }
@@ -179,6 +181,7 @@ class BatchJobTrigger(BaseTrigger):
             memory = self.get_optional('memory')
             gpus = self.get_optional('gpus')
             timeout = self.get_optional('timeout', self.OPTIONAL_FIELDS['timeout'])
+            container_image = self.get_optional('container_image')
             additional_env = self.get_optional('additional_env', {})
             
             # Set defaults based on compute_type if not provided
@@ -249,6 +252,11 @@ class BatchJobTrigger(BaseTrigger):
                 }
             }
             
+            # Override container image if provided
+            if container_image:
+                submit_params['containerOverrides']['image'] = container_image
+                logger.info(f"  Container Image: {container_image}")
+            
             # Set job timeout if specified
             if timeout and timeout > 0:
                 submit_params['timeout'] = {'attemptDurationSeconds': timeout}
@@ -265,6 +273,7 @@ class BatchJobTrigger(BaseTrigger):
                 'job_name': job_name,
                 'script_key': script_key,
                 'compute_type': compute_type,
+                'container_image': container_image,
                 'resources': {
                     'vcpus': vcpus,
                     'memory': memory,
