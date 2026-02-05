@@ -50,7 +50,7 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline cpu-slim-slim
+./build-and-push.sh us-east-1 $ACCOUNT_ID ml-pipeline cpu-slim
 ```
 
 ### Build Full GPU Image
