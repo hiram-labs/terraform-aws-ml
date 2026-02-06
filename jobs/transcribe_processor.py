@@ -41,6 +41,8 @@ import json
 import boto3
 import torch
 import zipfile
+import time
+import warnings
 from faster_whisper import WhisperModel
 from pyannote.audio import Pipeline
 from datetime import datetime
@@ -52,6 +54,15 @@ from abc import ABC, abstractmethod
 
 # Disable HuggingFace Hub online access - use only local models
 os.environ['HF_HUB_OFFLINE'] = '1'
+
+# Enable TF32 for faster GPU inference (T4/A10/A100)
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
+# Suppress known benign warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='pyannote.audio')
+warnings.filterwarnings('ignore', message='.*degrees of freedom.*')
 
 # Setup logging
 logging.basicConfig(
@@ -90,16 +101,25 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         whisper_model_name = self.args.get('whisper_model', 'guillaumekln/faster-whisper-small.en')
         pyannote_model_name = self.args.get('pyannote_model', 'pyannote/speaker-diarization-community-1')
         
+        timings = {}
+        
         device = self._get_device()
         compute_type = self._get_compute_type(device)
         
         logger.info("Downloading models from S3...")
+        t0 = time.time()
         whisper_model_path = self._download_model_from_s3(tmpdir, whisper_model_name, 'whisper')
         pyannote_model_path = self._download_model_from_s3(tmpdir, pyannote_model_name, 'pyannote')
+        timings['model_download_sec'] = round(time.time() - t0, 2)
         
         logger.info("Starting transcribe and speaker diarization...")
+        t0 = time.time()
         transcribe_result = self._transcribe_audio(audio_file, whisper_model_path, language, compute_type)
+        timings['transcription_sec'] = round(time.time() - t0, 2)
+        
+        t0 = time.time()
         speakers = self._diarize_audio(audio_file, pyannote_model_path)
+        timings['diarization_sec'] = round(time.time() - t0, 2)
         
         segments = self._align_transcribe_with_speakers(transcribe_result, speakers)
         
@@ -112,7 +132,8 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
                 'speakers': num_speakers,
                 'duration': segments[-1]['end'] if segments else 0,
                 'language': language,
-                'output_format': output_format
+                'output_format': output_format,
+                'timings': timings
             }
         }
     
@@ -191,7 +212,8 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             pipeline = pipeline.to(torch.device('cuda'))
         
         logger.info("Running speaker diarization")
-        diarization = pipeline(audio_file)
+        diarization_result = pipeline(audio_file)
+        diarization = getattr(diarization_result, "speaker_diarization", diarization_result)
         
         speakers = []
         for turn, _, speaker in diarization.itertracks(yield_label=True):
