@@ -208,12 +208,12 @@
           <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Job Inputs</div>
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Input Key</label>
-              <input class="form-control" name="input_key" id="input_key" placeholder="input/file.ext">
+              <label class="form-label">Input Key <span class="text-danger">*</span></label>
+              <input class="form-control" name="input_key" id="input_key" placeholder="input/file.ext" required>
             </div>
             <div class="col-md-6 mb-3">
-              <label class="form-label">Output Key</label>
-              <input class="form-control" name="output_key" id="output_key" placeholder="output/file.ext">
+              <label class="form-label">Output Key <span class="text-danger">*</span></label>
+              <input class="form-control" name="output_key" id="output_key" placeholder="output/file.ext" required>
             </div>
           </div>
         </div>
@@ -221,14 +221,14 @@
         <div class="preset-field preset-field-group" data-presets="download_media">
           <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Media Download</div>
           <div class="mb-3">
-            <label class="form-label">Source URL</label>
-            <input class="form-control" name="source_url" id="source_url" placeholder="https://www.youtube.com/watch?v=...">
+            <label class="form-label">Source URL <span class="text-danger">*</span></label>
+            <input class="form-control" name="source_url" id="source_url" placeholder="https://www.youtube.com/watch?v=..." required>
           </div>
 
           <div class="row">
             <div class="col-md-6 mb-3">
-              <label class="form-label">Output Key</label>
-              <input class="form-control" name="output_key" id="output_key" placeholder="media/output.mp4">
+              <label class="form-label">Output Key <span class="text-danger">*</span></label>
+              <input class="form-control" name="output_key" id="output_key" placeholder="media/output.mp4" required>
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">Output Format</label>
@@ -323,7 +323,43 @@
     </div>
 
     <script>
+      async function validateForm() {
+        const form = document.getElementById('job-form');
+        const preset = document.getElementById('preset').value;
+        
+        // Check HTML5 validation
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          return false;
+        }
+
+        // Additional validation for required fields based on preset
+        if (preset === 'extract_audio' || preset === 'transcribe_audio') {
+          const inputKey = document.getElementById('input_key').value.trim();
+          const outputKey = document.getElementById('output_key').value.trim();
+          if (!inputKey || !outputKey) {
+            alert('Input Key and Output Key are required for this preset');
+            return false;
+          }
+        }
+
+        if (preset === 'download_media') {
+          const sourceUrl = document.getElementById('source_url').value.trim();
+          const outputKey = document.getElementById('output_key').value.trim();
+          if (!sourceUrl || !outputKey) {
+            alert('Source URL and Output Key are required for this preset');
+            return false;
+          }
+        }
+
+        return true;
+      }
+
       async function postForm(path) {
+        if (!validateForm()) {
+          return;
+        }
+
         const form = document.getElementById('job-form');
         const formData = new FormData(form);
         const obj = {};
@@ -514,14 +550,27 @@
           const presets = field.getAttribute('data-presets');
           if (!presets) {
             field.classList.add('active');
+            // Enable required fields in always-visible sections
+            field.querySelectorAll('[required]').forEach(input => {
+              input.disabled = false;
+            });
             return;
           }
           
           const presetList = presets.split(',');
           if (preset && presetList.includes(preset)) {
             field.classList.add('active');
+            // Enable required fields when section is active
+            field.querySelectorAll('[required]').forEach(input => {
+              input.disabled = false;
+            });
           } else {
             field.classList.remove('active');
+            // Disable required fields when section is hidden to skip HTML5 validation
+            field.querySelectorAll('[required]').forEach(input => {
+              input.disabled = true;
+              input.value = '';
+            });
           }
         });
       }
