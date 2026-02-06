@@ -43,6 +43,7 @@ import torch
 import zipfile
 import time
 import warnings
+from botocore.exceptions import ClientError
 from faster_whisper import WhisperModel
 from pyannote.audio import Pipeline
 from datetime import datetime
@@ -75,8 +76,30 @@ INPUT_BUCKET = os.environ.get('INPUT_BUCKET')
 OUTPUT_BUCKET = os.environ.get('OUTPUT_BUCKET')
 MODELS_BUCKET = os.environ.get('MODELS_BUCKET')
 COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
+S3_RETRY_ATTEMPTS = 3
+S3_RETRY_DELAY = 2
 
 s3_client = boto3.client('s3')
+
+
+def s3_download_with_retry(bucket: str, key: str, filepath: str, max_retries: int = S3_RETRY_ATTEMPTS):
+    """Download from S3 with exponential backoff retry logic"""
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Downloading s3://{bucket}/{key} (attempt {attempt+1}/{max_retries})")
+            s3_client.download_file(bucket, key, filepath)
+            return
+        except ClientError as e:
+            if attempt < max_retries - 1:
+                wait_time = S3_RETRY_DELAY * (2 ** attempt)
+                logger.warning(f"S3 download failed: {e}. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                logger.error(f"S3 download failed after {max_retries} attempts: {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Unexpected error downloading from S3: {e}")
+            raise
 
 
 class TranscribeOperation(ABC):
@@ -165,9 +188,9 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         else:
             logger.info(f"Downloading {model_type} model '{model_name}' from s3://{bucket}/{zip_key}")
             
-            # Download zip
+            # Download zip with retry
             zip_local = Path(tmpdir) / f"{model_type}_{model_key}.zip"
-            s3_client.download_file(bucket, zip_key, str(zip_local))
+            s3_download_with_retry(bucket, zip_key, str(zip_local))
             
             # Extract to EFS
             efs_model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,43 +210,117 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
     def _transcribe_audio(self, audio_file: str, model_path: str, language: str = 'en', compute_type: str = 'cpu') -> List[Dict]:
         """Transcribe audio using Faster-Whisper with local model"""
         logger.info(f"Loading Faster-Whisper model from: {model_path}")
-        model = WhisperModel(model_path, device=compute_type)
+        
+        try:
+            model = WhisperModel(model_path, device=compute_type)
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            raise
         
         logger.info(f"Transcribing audio: {audio_file}")
-        segments, info = model.transcribe(audio_file, language=language)
         
-        result = []
-        for segment in segments:
-            result.append({
-                'start': segment.start,
-                'end': segment.end,
-                'text': segment.text.strip()
-            })
-        
-        logger.info(f"Transcribe complete: {len(result)} segments")
-        return result
+        try:
+            # Use VAD filter to skip silence, enable language detection fallback
+            segments, info = model.transcribe(
+                audio_file,
+                language=language if language != 'auto' else None,  # None = auto-detect
+                vad_filter=True,  # Skip silence regions
+                vad_parameters={"min_silence_duration_ms": 500},  # Require 500ms silence
+                beam_size=5,  # Reasonable accuracy/speed tradeoff
+                best_of=1,  # Single pass (faster)
+                without_timestamps=False,
+            )
+            
+            detected_lang = info.language if hasattr(info, 'language') else language
+            if detected_lang != language:
+                logger.info(f"Language: auto-detected '{detected_lang}' (requested '{language}')")
+            else:
+                logger.info(f"Language: {detected_lang}")
+            
+            result = []
+            for segment in segments:
+                text = segment.text.strip()
+                
+                # Skip very short segments (likely noise/artifacts)
+                if len(text) < 2:
+                    logger.debug(f"Skipping very short segment at {segment.start}s: '{text}'")
+                    continue
+                
+                # Skip segments with very low confidence
+                if hasattr(segment, 'no_speech_prob') and segment.no_speech_prob > 0.9:
+                    logger.debug(f"Skipping low-confidence segment at {segment.start}s (no_speech_prob={segment.no_speech_prob})")
+                    continue
+                
+                result.append({
+                    'start': round(segment.start, 3),
+                    'end': round(segment.end, 3),
+                    'text': text
+                })
+            
+            if not result:
+                logger.warning("No valid transcription segments found - audio may be silence or unsupported format")
+            
+            logger.info(f"Transcribe complete: {len(result)} valid segments")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Transcription failed: {e}", exc_info=True)
+            raise
     
     def _diarize_audio(self, audio_file: str, model_path: str) -> List[Dict]:
         logger.info(f"Loading pyannote model from: {model_path}")
         
-        pipeline = Pipeline.from_pretrained(model_path)
+        try:
+            pipeline = Pipeline.from_pretrained(model_path)
+        except Exception as e:
+            logger.error(f"Failed to load pyannote model: {e}")
+            raise
         
         if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
             pipeline = pipeline.to(torch.device('cuda'))
         
-        logger.info("Running speaker diarization")
-        diarization_result = pipeline(audio_file)
-        diarization = getattr(diarization_result, "speaker_diarization", diarization_result)
+        logger.info("Running speaker diarization with adaptive clustering")
         
         speakers = []
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
-            speakers.append({
-                'start': turn.start,
-                'end': turn.end,
-                'speaker': speaker
-            })
+        thresholds_to_try = [0.55, 0.35, 0.25]  # Progressive thresholds for multi-speaker detection
         
-        logger.info(f"Diarization complete: {len(set(s['speaker'] for s in speakers))} speakers detected")
+        for threshold_idx, threshold in enumerate(thresholds_to_try, 1):
+            try:
+                if threshold_idx > 1:
+                    logger.info(f"Retry {threshold_idx}: Using threshold {threshold}")
+                
+                pipeline.clustering = {
+                    "threshold": threshold,
+                    "Fa": 0.07,
+                    "Fb": 0.8
+                }
+                
+                diarization_result = pipeline(audio_file)
+                diarization = getattr(diarization_result, "speaker_diarization", diarization_result)
+                
+                detected_speakers = len(set(label for label in diarization.labels()))
+                audio_duration = diarization.get_duration()
+                logger.info(f"Detected: {detected_speakers} speakers in {audio_duration:.1f}s audio")
+                
+                # Extract speaker turns
+                speakers = []
+                for turn, _, speaker in diarization.itertracks(yield_label=True):
+                    speakers.append({
+                        'start': round(turn.start, 3),
+                        'end': round(turn.end, 3),
+                        'speaker': speaker
+                    })
+                
+                logger.info(f"Diarization complete: {len(set(s['speaker'] for s in speakers))} speakers detected")
+                break  # Successful - exit retry loop
+                
+            except Exception as e:
+                if threshold_idx < len(thresholds_to_try):
+                    logger.warning(f"Diarization failed at threshold {threshold}: {e}. Trying next threshold...")
+                else:
+                    logger.error(f"Diarization failed at all thresholds: {e}")
+                    raise
+        
         return speakers
     
     def _align_transcribe_with_speakers(self, transcribe_result: List[Dict], speakers: List[Dict]) -> List[Dict]:
@@ -352,8 +449,16 @@ class TranscribeProcessor:
                 local_output = os.path.join(tmpdir, 'output_file')
                 
                 logger.info("Downloading audio from S3...")
-                s3_client.download_file(self.input_bucket, self.input_key, local_input)
+                s3_download_with_retry(self.input_bucket, self.input_key, local_input)
                 logger.info("Audio downloaded successfully")
+                
+                # Validate audio file
+                audio_size = Path(local_input).stat().st_size
+                if audio_size == 0:
+                    raise ValueError(f"Downloaded audio file is empty (0 bytes)")
+                if audio_size > 10 * 1024 * 1024 * 1024:  # 10GB limit
+                    raise ValueError(f"Audio file too large ({audio_size/1e9:.1f}GB, max 10GB)")
+                logger.info(f"Audio file size: {audio_size / 1024 / 1024:.1f}MB")
                 
                 operation_class = OPERATIONS[self.operation_type]
                 operation = operation_class(self.args, self.models_bucket)
@@ -366,7 +471,18 @@ class TranscribeProcessor:
                     f.write(output_text)
                 
                 logger.info("Uploading transcript to S3...")
-                s3_client.upload_file(local_output, self.output_bucket, self.output_key)
+                for attempt in range(S3_RETRY_ATTEMPTS):
+                    try:
+                        s3_client.upload_file(local_output, self.output_bucket, self.output_key)
+                        break
+                    except ClientError as e:
+                        if attempt < S3_RETRY_ATTEMPTS - 1:
+                            wait_time = S3_RETRY_DELAY * (2 ** attempt)
+                            logger.warning(f"S3 upload failed: {e}. Retrying in {wait_time}s...")
+                            time.sleep(wait_time)
+                        else:
+                            logger.error(f"S3 upload failed after {S3_RETRY_ATTEMPTS} attempts: {e}")
+                            raise
                 logger.info("Transcript uploaded successfully")
                 
                 success_result = {
