@@ -50,9 +50,21 @@ resource "aws_iam_role_policy" "lambda_batch_submit" {
           "batch:SubmitJob",
           "batch:DescribeJobs",
           "batch:DescribeJobDefinitions",
-          "batch:DescribeJobQueues"
+          "batch:DescribeJobQueues",
+          "batch:RegisterJobDefinition",
+          "batch:TagResource"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = [
+          var.batch_job_role_arn,
+          var.batch_ecs_task_execution_role_arn
+        ]
       }
     ]
   })

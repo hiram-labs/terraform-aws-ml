@@ -8,6 +8,7 @@ Supports GPU acceleration, CPU-only compute, custom resource allocation, and par
 import os
 import json
 import logging
+import hashlib
 import boto3
 from datetime import datetime
 from typing import Dict, Any
@@ -199,6 +200,11 @@ class BatchJobTrigger(BaseTrigger):
             else:
                 job_queue = self.gpu_job_queue
                 job_definition = self.gpu_job_definition
+
+            # Override container image by registering/reusing a job definition
+            if container_image:
+                job_definition = self._get_or_register_job_definition(job_definition, container_image)
+                logger.info(f"  Container Image: {container_image}")
             
             # Generate or use provided job name
             job_name = self.get_optional('job_name')
@@ -252,11 +258,6 @@ class BatchJobTrigger(BaseTrigger):
                 }
             }
             
-            # Override container image if provided
-            if container_image:
-                submit_params['containerOverrides']['image'] = container_image
-                logger.info(f"  Container Image: {container_image}")
-            
             # Set job timeout if specified
             if timeout and timeout > 0:
                 submit_params['timeout'] = {'attemptDurationSeconds': timeout}
@@ -288,7 +289,7 @@ class BatchJobTrigger(BaseTrigger):
                 }
             }
         
-        except self.validate.__class__.__bases__[0] as e:
+        except ValidationError as e:
             # Validation errors
             logger.error(f"Validation error: {str(e)}")
             raise ExecutionError(f"Batch job validation failed: {str(e)}")
@@ -323,6 +324,64 @@ class BatchJobTrigger(BaseTrigger):
         job_name = job_name[:max_name_length]
         
         return f"{job_name}-{timestamp}"
+
+    @staticmethod
+    def _job_definition_name(job_definition: str) -> str:
+        """Extract job definition name from ARN or name."""
+        if job_definition.startswith('arn:'):
+            name_part = job_definition.split('job-definition/', 1)[1]
+            return name_part.split(':', 1)[0]
+        return job_definition
+
+    def _get_or_register_job_definition(self, base_job_definition: str, container_image: str) -> str:
+        """Register or reuse a job definition that points to the provided container image."""
+        base_name = self._job_definition_name(base_job_definition)
+        image_hash = hashlib.sha1(container_image.encode('utf-8')).hexdigest()[:8]
+        override_name = f"{base_name}-img-{image_hash}"
+
+        existing = batch_client.describe_job_definitions(
+            jobDefinitionName=override_name,
+            status='ACTIVE'
+        )
+        if existing.get('jobDefinitions'):
+            latest = max(existing['jobDefinitions'], key=lambda d: d.get('revision', 0))
+            return latest['jobDefinitionArn']
+
+        base_desc = batch_client.describe_job_definitions(jobDefinitions=[base_job_definition])
+        if not base_desc.get('jobDefinitions'):
+            base_desc = batch_client.describe_job_definitions(
+                jobDefinitionName=base_name,
+                status='ACTIVE'
+            )
+        if not base_desc.get('jobDefinitions'):
+            raise ExecutionError(f"Base job definition not found: {base_job_definition}")
+
+        base_def = max(base_desc['jobDefinitions'], key=lambda d: d.get('revision', 0))
+        container_props = dict(base_def['containerProperties'])
+        container_props['image'] = container_image
+
+        register_params = {
+            'jobDefinitionName': override_name,
+            'type': base_def['type'],
+            'containerProperties': container_props,
+        }
+
+        for key in [
+            'parameters',
+            'retryStrategy',
+            'timeout',
+            'platformCapabilities',
+            'propagateTags',
+            'schedulingPriority',
+            'nodeProperties',
+            'ecsProperties',
+            'eksProperties',
+        ]:
+            if key in base_def:
+                register_params[key] = base_def[key]
+
+        response = batch_client.register_job_definition(**register_params)
+        return response['jobDefinitionArn']
     
     @staticmethod
     def _generate_output_prefix(job_name: str) -> str:

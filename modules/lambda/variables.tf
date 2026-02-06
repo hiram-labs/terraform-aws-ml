@@ -43,6 +43,16 @@ variable "batch_job_queue_arn" {
   type        = string
 }
 
+variable "batch_job_role_arn" {
+  description = "ARN of the Batch job execution role"
+  type        = string
+}
+
+variable "batch_ecs_task_execution_role_arn" {
+  description = "ARN of the ECS task execution role for Batch jobs"
+  type        = string
+}
+
 variable "ml_gpu_job_definition_name" {
   description = "Name of the ML Python job definition"
   type        = string
