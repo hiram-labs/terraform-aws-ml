@@ -43,10 +43,16 @@ variable "ml_models_bucket" {
   type        = string
 }
 
-variable "ml_container_image" {
-  description = "ECR container image URI for ML Python jobs"
+variable "ml_gpu_container_image" {
+  description = "ECR container image URI for ML GPU jobs"
   type        = string
   default     = "tensorflow/tensorflow:latest-gpu"
+}
+
+variable "ml_cpu_container_image" {
+  description = "ECR container image URI for ML CPU jobs"
+  type        = string
+  default     = "tensorflow/tensorflow:latest"
 }
 
 variable "gpu_instance_types" {

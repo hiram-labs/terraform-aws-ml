@@ -384,7 +384,7 @@ resource "aws_batch_job_definition" "ml_gpu_job" {
   platform_capabilities = ["EC2"]
 
   container_properties = jsonencode({
-    image = var.ml_container_image
+    image = var.ml_gpu_container_image
 
     resourceRequirements = [
       {
@@ -605,7 +605,7 @@ resource "aws_batch_job_definition" "ml_cpu_job" {
   platform_capabilities = ["EC2"]
 
   container_properties = jsonencode({
-    image = var.ml_container_image
+    image = var.ml_cpu_container_image
 
     resourceRequirements = [
       {

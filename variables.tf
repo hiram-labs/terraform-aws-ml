@@ -50,10 +50,16 @@ variable "availability_zones" {
 # Container Images                                             #
 ###############################################################
 
-variable "ml_container_image" {
+variable "ml_gpu_container_image" {
   type        = string
-  description = "ECR URI for ML Python container image"
+  description = "ECR URI for ML GPU container image"
   default     = "tensorflow/tensorflow:latest-gpu"
+}
+
+variable "ml_cpu_container_image" {
+  type        = string
+  description = "ECR URI for ML CPU container image"
+  default     = "tensorflow/tensorflow:latest"
 }
 
 ###############################################################

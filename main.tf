@@ -78,7 +78,8 @@ module "batch" {
   ml_input_bucket        = module.s3.ml_input_bucket_name
   ml_output_bucket       = module.s3.ml_output_bucket_name
   ml_models_bucket       = module.s3.ml_models_bucket_name
-  ml_container_image     = var.ml_container_image
+  ml_gpu_container_image = var.ml_gpu_container_image
+  ml_cpu_container_image = var.ml_cpu_container_image
   gpu_instance_types     = var.ml_gpu_instance_types
   use_spot_instances     = var.ml_gpu_use_spot_instances
   min_vcpus              = var.ml_gpu_min_vcpus
@@ -114,6 +115,8 @@ module "lambda" {
   ml_models_bucket           = module.s3.ml_models_bucket_name
   batch_job_queue_name       = module.batch.batch_job_queue_name
   batch_job_queue_arn        = module.batch.batch_job_queue_arn
+  batch_job_role_arn         = module.batch.batch_job_role_arn
+  batch_ecs_task_execution_role_arn = module.batch.batch_ecs_task_execution_role_arn
   ml_gpu_job_definition_name = module.batch.ml_gpu_job_definition_name
   cpu_job_queue_name         = module.batch.cpu_job_queue_name
   ml_cpu_job_definition_name = module.batch.ml_cpu_job_definition_name
