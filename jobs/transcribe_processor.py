@@ -27,7 +27,7 @@ SNS Trigger Format:
       "language": "en",
       "output_format": "json",
       "whisper_model": "guillaumekln/faster-whisper-small.en",
-      "pyannote_model": "pyannote/speaker-diarization-3.1"
+      "pyannote_model": "pyannote/speaker-diarization-community-1"
     }
   }
 }
@@ -49,6 +49,9 @@ import logging
 from typing import Dict, List
 from pathlib import Path
 from abc import ABC, abstractmethod
+
+# Disable HuggingFace Hub online access - use only local models
+os.environ['HF_HUB_OFFLINE'] = '1'
 
 # Setup logging
 logging.basicConfig(
@@ -85,7 +88,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         language = self.args.get('language', 'en')
         output_format = self.args.get('output_format', 'json')
         whisper_model_name = self.args.get('whisper_model', 'guillaumekln/faster-whisper-small.en')
-        pyannote_model_name = self.args.get('pyannote_model', 'pyannote/speaker-diarization-3.1')
+        pyannote_model_name = self.args.get('pyannote_model', 'pyannote/speaker-diarization-community-1')
         
         device = self._get_device()
         compute_type = self._get_compute_type(device)
@@ -180,10 +183,9 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         return result
     
     def _diarize_audio(self, audio_file: str, model_path: str) -> List[Dict]:
-        """Identify speakers using pyannote model from S3"""
         logger.info(f"Loading pyannote model from: {model_path}")
         
-        pipeline = Pipeline.from_pretrained(Path(model_path))
+        pipeline = Pipeline.from_pretrained(model_path, use_auth_token=False)
         
         if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
             pipeline = pipeline.to(torch.device('cuda'))
