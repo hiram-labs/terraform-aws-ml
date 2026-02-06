@@ -59,49 +59,45 @@ terraform init -backend-config="bucket=${PROJECT_NAME}-terraform-state" \
 terraform apply
 ```
 
-### 3. Build and Push Container Image
+### 3. Build and Push Container Images
 
-Choose which container image to build:
+Build container images for GPU and CPU jobs:
 
-**Option A: Slim Python Image (Fast - ~2 minutes)**
-Minimal Python 3.11 with FFmpeg, PyTorch CPU, faster-whisper, and pyannote.audio - perfect for video processing and transcription jobs:
-
-```bash
-cd modules/batch/docker
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME cpu-slim
-cd $OLDPWD
-
-# Copy the ECR URI from output
-```
-
-**Option B: Full GPU Image (Slow - ~15-20 minutes)**
-Heavy container with CUDA, TensorFlow 2.15, PyTorch 2.1 - for GPU training/inference:
+**Option A: CPU Slim Image (Fast - ~2 minutes)**
+Minimal Python 3.11 with FFmpeg - perfect for video processing, audio extraction, and data pipelines:
 
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME cpu-slim
 cd $OLDPWD
-
-# Copy the ECR URI from output
 ```
 
-**Option C: Build All Images (takes ~20-25 minutes total)**
+**Option B: GPU Slim Image (~5-10 minutes)**
+Python 3.11 with CUDA 12.1, PyTorch 2.1, faster-whisper, and pyannote.audio - for GPU-accelerated transcription and inference:
+
+```bash
+cd modules/batch/docker
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME gpu-slim
+cd $OLDPWD
+```
+
+**Option C: Build All Images (takes ~15-20 minutes total)**
 
 ```bash
 cd modules/batch/docker
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 ./build-and-push.sh $AWS_REGION $ACCOUNT_ID $PROJECT_NAME
 cd $OLDPWD
-# Choose which one to use
 ```
 
-Then update `terraform.tfvars` with the ECR image URI and apply:
+Then update `terraform.tfvars` with the ECR image URIs:
 
 ```bash
 # Edit terraform.tfvars
-ml_container_image = "<ECR_URI_from_build_output>"
+ml_gpu_container_image = "<ECR_URI_for_gpu-slim>"
+ml_cpu_container_image = "<ECR_URI_for_cpu-slim>"
 
 terraform apply
 ```
