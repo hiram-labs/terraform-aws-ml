@@ -350,11 +350,9 @@ See code comments for examples.
 
 ## Cleanup
 
-### EFS Cache Management
+### EFS Cache
 
-The EFS file system caches downloaded models to avoid repeated downloads across batch jobs. Models are automatically downloaded and cached on the first job run.
-
-To clear cached model files (stop EFS storage charges) while keeping the cache ready for reuse, trigger the cleanup job:
+Clear all caches to prevent cost when not in use:
 
 ```bash
 TOPIC_ARN=$(terraform output -raw trigger_events_topic_arn)
@@ -369,11 +367,21 @@ aws sns publish --topic-arn "$TOPIC_ARN" --message '{
 }' --region "$AWS_REGION"
 ```
 
-The cleanup job will:
-- Delete all cached models from `/opt/models`
-- Log the freed space
-- Keep the EFS and mount targets intact for reuse
-- Models auto-download on the next job that needs them
+Clear specific path:
+
+```bash
+aws sns publish --topic-arn "$TOPIC_ARN" --message '{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/cleanup_processor.py",
+    "compute_type": "cpu",
+    "operation": "cleanup_cache",
+    "args": {
+      "path": "/opt/cookies/cookies_youtube_txt"
+    }
+  }
+}' --region "$AWS_REGION"
+```
 
 ### Full Infrastructure Cleanup
 

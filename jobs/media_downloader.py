@@ -120,14 +120,13 @@ class YouTubeDownloadOperation(MediaDownloadOperation):
         cookies_file = None
         if cookies_s3_key:
             try:
-                # Use EFS cache for cookies (same as models)
-                efs_cookies_path = Path('/opt/models') / 'cookies' / cookies_s3_key.replace('/', '_')
+                efs_cookies_path = Path('/opt/cookies') / cookies_s3_key.replace('/', '_')
+                efs_cookies_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 if efs_cookies_path.exists():
                     logger.info(f"Using cached cookies from {efs_cookies_path}")
                     cookies_file = str(efs_cookies_path)
                 else:
-                    # Download and cache
                     efs_cookies_path.parent.mkdir(parents=True, exist_ok=True)
                     s3_client.download_file(cookies_bucket, cookies_s3_key, str(efs_cookies_path))
                     logger.info(f"Downloaded and cached cookies from s3://{cookies_bucket}/{cookies_s3_key} to {efs_cookies_path}")

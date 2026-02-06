@@ -56,7 +56,6 @@ from abc import ABC, abstractmethod
 # Disable HuggingFace Hub online access - use only local models
 os.environ['HF_HUB_OFFLINE'] = '1'
 
-# Enable TF32 for faster GPU inference (T4/A10/A100)
 if torch.cuda.is_available():
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
@@ -65,7 +64,6 @@ if torch.cuda.is_available():
 warnings.filterwarnings('ignore', category=UserWarning, module='pyannote.audio')
 warnings.filterwarnings('ignore', message='.*degrees of freedom.*')
 
-# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -182,6 +180,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         model_key = model_name.replace('/', '-')
         zip_key = f"models/{model_type}/{model_key}.zip"
         efs_model_path = Path('/opt/models') / model_type / model_key
+        efs_model_path.parent.mkdir(parents=True, exist_ok=True)
         
         if efs_model_path.exists():
             logger.info(f"Model {model_name} already cached at {efs_model_path}")
@@ -241,12 +240,10 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             for segment in segments:
                 text = segment.text.strip()
                 
-                # Skip very short segments (likely noise/artifacts)
                 if len(text) < 2:
                     logger.debug(f"Skipping very short segment at {segment.start}s: '{text}'")
                     continue
                 
-                # Skip segments with very low confidence
                 if hasattr(segment, 'no_speech_prob') and segment.no_speech_prob > 0.9:
                     logger.debug(f"Skipping low-confidence segment at {segment.start}s (no_speech_prob={segment.no_speech_prob})")
                     continue
@@ -282,7 +279,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
         logger.info("Running speaker diarization with adaptive clustering")
         
         speakers = []
-        thresholds_to_try = [0.55, 0.35, 0.25]  # Progressive thresholds for multi-speaker detection
+        thresholds_to_try = [0.55, 0.35, 0.25]
         
         for threshold_idx, threshold in enumerate(thresholds_to_try, 1):
             try:
@@ -302,7 +299,6 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
                 audio_duration = diarization.get_duration()
                 logger.info(f"Detected: {detected_speakers} speakers in {audio_duration:.1f}s audio")
                 
-                # Extract speaker turns
                 speakers = []
                 for turn, _, speaker in diarization.itertracks(yield_label=True):
                     speakers.append({
@@ -312,7 +308,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
                     })
                 
                 logger.info(f"Diarization complete: {len(set(s['speaker'] for s in speakers))} speakers detected")
-                break  # Successful - exit retry loop
+                break
                 
             except Exception as e:
                 if threshold_idx < len(thresholds_to_try):
@@ -452,7 +448,6 @@ class TranscribeProcessor:
                 s3_download_with_retry(self.input_bucket, self.input_key, local_input)
                 logger.info("Audio downloaded successfully")
                 
-                # Validate audio file
                 audio_size = Path(local_input).stat().st_size
                 if audio_size == 0:
                     raise ValueError(f"Downloaded audio file is empty (0 bytes)")

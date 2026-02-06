@@ -454,15 +454,15 @@ resource "aws_batch_job_definition" "ml_gpu_job" {
 
     mountPoints = [
       {
-        sourceVolume  = "model-cache"
-        containerPath = "/opt/models"
+        sourceVolume  = "batch-cache"
+        containerPath = "/opt"
         readOnly      = false
       }
     ]
 
     volumes = [
       {
-        name = "model-cache"
+        name = "batch-cache"
         efsVolumeConfiguration = {
           fileSystemId      = var.efs_file_system_id
           accessPointId     = var.efs_access_point_id
@@ -651,15 +651,15 @@ resource "aws_batch_job_definition" "ml_cpu_job" {
 
     mountPoints = [
       {
-        sourceVolume  = "model-cache"
-        containerPath = "/opt/models"
+        sourceVolume  = "batch-cache"
+        containerPath = "/opt"
         readOnly      = false
       }
     ]
 
     volumes = [
       {
-        name = "model-cache"
+        name = "batch-cache"
         efsVolumeConfiguration = {
           fileSystemId      = var.efs_file_system_id
           accessPointId     = var.efs_access_point_id

@@ -7,14 +7,9 @@ Clears the EFS model cache to stop storage charges while keeping the cache ready
 Models will be automatically re-downloaded on the next job that uses them.
 
 Supported Operations:
-- cleanup_cache: Remove all cached models from /opt/models
+- cleanup_cache: Remove cached files/directories from /opt
 
-To add new operations:
-  1. Create a class inheriting from CleanupOperation
-  2. Implement process() method
-  3. Add to OPERATIONS registry
-
-SNS Trigger Format:
+SNS Trigger Format (clear all):
 {
   "trigger_type": "batch_job",
   "data": {
@@ -23,6 +18,24 @@ SNS Trigger Format:
     "operation": "cleanup_cache"
   }
 }
+
+SNS Trigger Format (delete specific path):
+{
+  "trigger_type": "batch_job",
+  "data": {
+    "script_key": "jobs/cleanup_processor.py",
+    "compute_type": "cpu",
+    "operation": "cleanup_cache",
+    "args": {
+      "path": "/opt/cookies/cookies_youtube_txt"
+    }
+  }
+}
+
+To add new operations:
+  1. Create a class inheriting from CleanupOperation
+  2. Implement process() method
+  3. Add to OPERATIONS registry
 """
 
 import os
@@ -56,52 +69,98 @@ class CleanupOperation(ABC):
 
 
 class ClearModelCacheOperation(CleanupOperation):
-    """Clear the /opt/models cache directory"""
+    """Clear cached items from /opt/models or remove a specific path"""
     
     def process(self) -> Dict:
-        """Clear the model cache and return statistics"""
-        cache_dir = Path('/opt/models')
+        """Clear specific path or entire model cache and return statistics"""
+        specific_path = self.args.get('path') if self.args else None
         
-        if not cache_dir.exists():
-            logger.info(f"Cache directory {cache_dir} does not exist - nothing to clean")
+        if specific_path:
+            # Delete specific file or directory
+            target = Path(specific_path)
+            
+            if not target.exists():
+                logger.warning(f"Path does not exist: {target}")
+                return {
+                    'status': 'success',
+                    'message': 'Path not found',
+                    'size_freed_mb': 0.0
+                }
+            
+            logger.info(f"Deleting specific path: {target}")
+            
+            # Calculate size before deletion
+            total_size = 0
+            if target.is_file():
+                total_size = target.stat().st_size
+            else:
+                for item in target.rglob('*'):
+                    if item.is_file():
+                        total_size += item.stat().st_size
+            
+            size_mb = total_size / (1024 * 1024)
+            
+            try:
+                if target.is_file():
+                    target.unlink()
+                    logger.info(f"Deleted file: {target}")
+                else:
+                    shutil.rmtree(target)
+                    logger.info(f"Deleted directory: {target}")
+                
+                return {
+                    'status': 'success',
+                    'path': str(target),
+                    'size_freed_mb': round(size_mb, 2),
+                    'message': f'Deleted {size_mb:.2f} MB'
+                }
+            except Exception as e:
+                logger.error(f"Failed to delete {target}: {str(e)}")
+                raise
+        else:
+            # Delete entire cache directory
+            cache_dir = Path('/opt/models')
+            
+            if not cache_dir.exists():
+                logger.info(f"Cache directory {cache_dir} does not exist - nothing to clean")
+                return {
+                    'status': 'success',
+                    'message': 'Cache directory not found',
+                    'size_freed_mb': 0.0
+                }
+            
+            logger.info(f"Clearing entire cache directory: {cache_dir}")
+            
+            # Calculate total size before deletion
+            total_size = 0
+            file_count = 0
+            for item in cache_dir.rglob('*'):
+                if item.is_file():
+                    total_size += item.stat().st_size
+                    file_count += 1
+            
+            size_mb = total_size / (1024 * 1024)
+            logger.info(f"Total cache size: {size_mb:.2f} MB ({file_count} files)")
+            
+            # Remove all contents (but not the directory itself, as it may be a mount point)
+            try:
+                for item in cache_dir.iterdir():
+                    if item.is_file():
+                        item.unlink()
+                    elif item.is_dir():
+                        shutil.rmtree(item)
+                logger.info(f"Successfully cleared cache - freed {size_mb:.2f} MB")
+            except Exception as e:
+                logger.error(f"Failed to clear cache: {str(e)}")
+                raise
+            
             return {
                 'status': 'success',
-                'message': 'Cache directory not found',
-                'size_freed_mb': 0.0
+                'cache_directory': str(cache_dir),
+                'size_freed_mb': round(size_mb, 2),
+                'files_deleted': file_count,
+                'message': f'Cleared {size_mb:.2f} MB from model cache'
             }
-        
-        logger.info(f"Clearing cache directory: {cache_dir}")
-        
-        # Calculate total size before deletion
-        total_size = 0
-        file_count = 0
-        for item in cache_dir.rglob('*'):
-            if item.is_file():
-                total_size += item.stat().st_size
-                file_count += 1
-        
-        size_mb = total_size / (1024 * 1024)
-        logger.info(f"Total cache size: {size_mb:.2f} MB ({file_count} files)")
-        
-        # Remove all contents (but not the directory itself, as it may be a mount point)
-        try:
-            for item in cache_dir.iterdir():
-                if item.is_file():
-                    item.unlink()
-                elif item.is_dir():
-                    shutil.rmtree(item)
-            logger.info(f"Successfully cleared cache - freed {size_mb:.2f} MB")
-        except Exception as e:
-            logger.error(f"Failed to clear cache: {str(e)}")
-            raise
-        
-        return {
-            'status': 'success',
-            'cache_directory': str(cache_dir),
-            'size_freed_mb': round(size_mb, 2),
-            'files_deleted': file_count,
-            'message': f'Cleared {size_mb:.2f} MB from model cache'
-        }
 
 
 # Registry of available operations

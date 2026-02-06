@@ -2,24 +2,24 @@
 # EFS for Persistent Model Storage                            #
 # Allows models to be cached across batch jobs                #
 ###############################################################
-resource "aws_efs_file_system" "model_cache" {
-  creation_token = "${var.project_name}-model-cache"
+resource "aws_efs_file_system" "batch_cache" {
+  creation_token = "${var.project_name}-batch-cache"
   encrypted      = true
 
   tags = merge(var.common_tags, {
-    Name = "${var.project_name}-model-cache"
+    Name = "${var.project_name}-batch-cache"
   })
 }
 
-resource "aws_efs_mount_target" "model_cache" {
+resource "aws_efs_mount_target" "batch_cache" {
   count           = length(var.private_subnet_ids)
-  file_system_id  = aws_efs_file_system.model_cache.id
+  file_system_id  = aws_efs_file_system.batch_cache.id
   subnet_id       = var.private_subnet_ids[count.index]
   security_groups = [aws_security_group.efs_sg.id]
 }
 
-resource "aws_efs_access_point" "model_cache" {
-  file_system_id = aws_efs_file_system.model_cache.id
+resource "aws_efs_access_point" "batch_cache" {
+  file_system_id = aws_efs_file_system.batch_cache.id
 
   posix_user {
     gid = 1000
@@ -36,7 +36,7 @@ resource "aws_efs_access_point" "model_cache" {
   }
 
   tags = merge(var.common_tags, {
-    Name = "${var.project_name}-model-cache-access-point"
+    Name = "${var.project_name}-batch-cache-access-point"
   })
 }
 
