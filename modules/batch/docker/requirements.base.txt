@@ -7,3 +7,6 @@ wheel>=0.40.0
 # AWS SDK
 boto3>=1.28.0
 awscli>=1.32.0
+
+# Media download
+yt-dlp==2026.2.4

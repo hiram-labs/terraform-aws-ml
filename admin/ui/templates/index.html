@@ -94,6 +94,12 @@
         grid-template-columns: 1fr 1fr;
         gap: 0.6rem;
       }
+      .preset-field {
+        display: none;
+      }
+      .preset-field.active {
+        display: block;
+      }
       #output-container {
         position: relative;
       }
@@ -141,83 +147,156 @@
       #history-container-wrapper.fullscreen #history-container {
         height: calc(100vh - 120px) !important;
       }
+      .form-section {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .form-section-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #495057;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
+      }
+      .preset-field-group {
+        background: #f8f9fa;
+        border-left: 3px solid #0d6efd;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+      }
     </style>
   </head>
   <body class="bg-light">
     <div class="container py-5">
-      <h1 class="mb-4">ML Pipeline Control Panel</h1>
+      <h1 class="mb-4 text-center">ML Pipeline Control Panel</h1>
 
       <form id="job-form">
-        <div class="mb-3">
-          <label class="form-label">SNS Topic ARN (optional)</label>
-          <input class="form-control" name="topic_arn" id="topic_arn" placeholder="{{ default_topic or 'optional' }}">
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label">Container Image (optional)</label>
-          <input class="form-control" name="container_image" id="container_image" placeholder="277707129399.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-cpu-slim:latest">
-          <small class="form-text text-muted">Override the default container image for the job</small>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label">Preset</label>
-          <select class="form-select" name="preset" id="preset">
-            <option value="">-- none --</option>
-            {% for p in presets %}
-            <option value="{{p}}">{{p}}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Input Key</label>
-            <input class="form-control" name="input_key" id="input_key" placeholder="input/file.ext">
+        <!-- Configuration Section -->
+        <div class="form-section">
+          <div class="form-section-title">Configuration</div>
+          <div class="mb-3">
+            <label class="form-label">SNS Topic ARN (optional)</label>
+            <input class="form-control" name="topic_arn" id="topic_arn" placeholder="{{ default_topic or 'optional' }}">
           </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Output Key</label>
-            <input class="form-control" name="output_key" id="output_key" placeholder="output/file.ext">
-          </div>
-        </div>
 
-        <div class="mb-3">
-          <label class="form-label">Data (JSON override)</label>
-          <textarea class="form-control" name="data" id="data" rows="4" placeholder='{"key": "value"}'></textarea>
-        </div>
+          <div class="mb-3">
+            <label class="form-label">Container Image (optional)</label>
+            <input class="form-control" name="container_image" id="container_image" placeholder="277707129399.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-cpu-slim:latest">
+            <small class="form-text text-muted">Override the default container image for the job</small>
+          </div>
 
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label class="form-label">Input Bucket</label>
-            <select class="form-select" id="input_bucket" name="input_bucket">
-              <option value="" selected>-- none --</option>
-              {% for bucket_name in buckets.values() %}
-              <option value="{{ bucket_name }}">{{ bucket_name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">Output Bucket</label>
-            <select class="form-select" id="output_bucket" name="output_bucket">
-              <option value="" selected>-- none --</option>
-              {% for bucket_name in buckets.values() %}
-              <option value="{{ bucket_name }}">{{ bucket_name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-md-4 mb-3">
-            <label class="form-label">Model Bucket</label>
-            <select class="form-select" id="model_bucket" name="model_bucket">
-              <option value="" selected>-- none --</option>
-              {% for bucket_name in buckets.values() %}
-              <option value="{{ bucket_name }}">{{ bucket_name }}</option>
+          <div class="mb-0">
+            <label class="form-label">Preset</label>
+            <select class="form-select" name="preset" id="preset">
+              <option value="">-- none --</option>
+              {% for p in presets %}
+              <option value="{{p}}">{{p}}</option>
               {% endfor %}
             </select>
           </div>
         </div>
 
-        <div class="d-flex gap-2">
-          <button class="btn btn-secondary" type="button" id="preview-btn">Preview</button>
-          <button class="btn btn-primary" type="button" id="publish-btn">Publish</button>
+        <!-- Preset-specific Fields -->
+        <div class="preset-field preset-field-group" data-presets="extract_audio,transcribe_audio">
+          <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Job Inputs</div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Input Key</label>
+              <input class="form-control" name="input_key" id="input_key" placeholder="input/file.ext">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Output Key</label>
+              <input class="form-control" name="output_key" id="output_key" placeholder="output/file.ext">
+            </div>
+          </div>
+        </div>
+
+        <div class="preset-field preset-field-group" data-presets="download_media">
+          <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Media Download</div>
+          <div class="mb-3">
+            <label class="form-label">Source URL</label>
+            <input class="form-control" name="source_url" id="source_url" placeholder="https://www.youtube.com/watch?v=...">
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Output Key</label>
+              <input class="form-control" name="output_key" id="output_key" placeholder="media/output.mp4">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Output Format</label>
+              <select class="form-select" name="output_format" id="output_format">
+                <option value="">-- default --</option>
+                <option value="mp4">mp4</option>
+                <option value="webm">webm</option>
+                <option value="audio">audio</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-0">
+              <label class="form-label">Quality</label>
+              <select class="form-select" name="quality" id="quality">
+                <option value="">-- default --</option>
+                <option value="best">best</option>
+                <option value="high">high</option>
+                <option value="medium">medium</option>
+                <option value="low">low</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Section -->
+        <div class="form-section">
+          <div class="form-section-title">Advanced</div>
+          <div class="mb-3">
+            <label class="form-label">Data (JSON override)</label>
+            <textarea class="form-control" name="data" id="data" rows="4" placeholder='{"key": "value"}'></textarea>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Input Bucket</label>
+              <select class="form-select" id="input_bucket" name="input_bucket">
+                <option value="" selected>-- none --</option>
+                {% for bucket_name in buckets.values() %}
+                <option value="{{ bucket_name }}">{{ bucket_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Output Bucket</label>
+              <select class="form-select" id="output_bucket" name="output_bucket">
+                <option value="" selected>-- none --</option>
+                {% for bucket_name in buckets.values() %}
+                <option value="{{ bucket_name }}">{{ bucket_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4 mb-0">
+              <label class="form-label">Model Bucket</label>
+              <select class="form-select" id="model_bucket" name="model_bucket">
+                <option value="" selected>-- none --</option>
+                {% for bucket_name in buckets.values() %}
+                <option value="{{ bucket_name }}">{{ bucket_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end">
+          <button class="btn btn-secondary px-4" type="button" id="preview-btn">Preview</button>
+          <button class="btn btn-primary px-4" type="button" id="publish-btn">Publish to SNS</button>
         </div>
       </form>
 
@@ -283,6 +362,7 @@
             const inputBucket = job.form_data?.input_bucket || job.input_bucket || 'N/A';
             const outputBucket = job.form_data?.output_bucket || job.output_bucket || 'N/A';
             const modelBucket = job.form_data?.model_bucket || job.model_bucket || 'N/A';
+            const sourceUrl = job.form_data?.source_url || job.payload?.data?.args?.source_url || 'N/A';
             
             const status = job.status || 'unknown';
             const statusClass = status === 'success' ? 'success' : status === 'failed' ? 'failed' : '';
@@ -318,6 +398,8 @@
                     ${outputBucket !== 'N/A' ? `<div class="history-section-value muted">${outputBucket}</div>` : ''}
                   </div>
                 </div>
+
+                ${sourceUrl !== 'N/A' ? `<div class="history-section" style="margin-top: 0.3rem;"><small class="text-muted">Source: ${sourceUrl}</small></div>` : ''}
 
                 ${scriptKey !== 'unknown' ? `<div class="history-section" style="margin-top: 0.3rem;"><small class="text-muted">Script: ${scriptKey}</small></div>` : ''}
                 ${modelBucket !== 'N/A' ? `<div class="history-section"><small class="text-muted">Model: ${modelBucket}</small></div>` : ''}
@@ -422,6 +504,31 @@
             document.getElementById('expand-history-btn').textContent = '⛶';
           }
         }
+      });
+
+      function updatePresetFields() {
+        const preset = document.getElementById('preset').value;
+        const allFields = document.querySelectorAll('.preset-field');
+        
+        allFields.forEach(field => {
+          const presets = field.getAttribute('data-presets');
+          if (!presets) {
+            field.classList.add('active');
+            return;
+          }
+          
+          const presetList = presets.split(',');
+          if (preset && presetList.includes(preset)) {
+            field.classList.add('active');
+          } else {
+            field.classList.remove('active');
+          }
+        });
+      }
+      
+      document.addEventListener('DOMContentLoaded', () => {
+        updatePresetFields();
+        document.getElementById('preset').addEventListener('change', updatePresetFields);
       });
       
       loadHistory();

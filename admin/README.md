@@ -50,7 +50,7 @@ uvicorn admin.ui.app:app --reload --port 8000
 ```
 
 Features:
-- Job presets (extract-audio, transcribe-audio)
+- Job presets (extract-audio, transcribe-audio, download-media)
 - Bucket selection (all buckets available for any purpose)
 - JSON overrides for custom configurations
 - Preview payloads before publishing
@@ -61,5 +61,5 @@ Features:
 | Script              | Purpose                                      | Example Command |
 |---------------------|----------------------------------------------|-----------------|
 | scripts/download_models.py  | Download/upload Hugging Face models to S3     | `python scripts/download_models.py --bucket my-models --model-type whisper --model-names openai/whisper-base,guillaumekln/faster-whisper-small.en` |
-| scripts/trigger_jobs.py     | Trigger jobs via SNS (supports presets: extract-audio, transcribe-audio; optional: --input-bucket, --output-bucket, --model-bucket, --container-image) | `python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "audio/input.wav"}'` or `python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "audio/input.wav"}' --container-image 123456789012.dkr.ecr.us-east-1.amazonaws.com/ml-pipeline-gpu-slim:latest` |
+| scripts/trigger_jobs.py     | Trigger jobs via SNS (supports presets: extract-audio, transcribe-audio, download-media; optional: --input-bucket, --output-bucket, --model-bucket, --container-image) | `python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "audio/input.wav"}'` or `python scripts/trigger_jobs.py --preset download-media --data '{"output_key": "media/output.mp4", "args": {"source_url": "https://www.youtube.com/watch?v=...", "output_format": "mp4", "quality": "best"}}'` |
 | scripts/upload_jobs.py      | Upload all files in jobs/ to S3               | `python scripts/upload_jobs.py --bucket my-bucket --prefix jobs/` |

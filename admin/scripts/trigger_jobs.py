@@ -4,9 +4,6 @@ Trigger jobs by publishing messages to an SNS topic.
 
 Usage:
     python scripts/trigger_jobs.py --topic-arn <SNS_TOPIC_ARN> --data '{"input_key": "path/to/input.mp4"}'
-    python scripts/trigger_jobs.py --preset extract_audio --data '{"input_key": "path/to/input.mp4"}'
-    python scripts/trigger_jobs.py --preset transcribe_audio --data '{"input_key": "path/to/input.wav"}'
-    python scripts/trigger_jobs.py --preset cleanup_cache
 
 Environment Variables:
     TRIGGER_EVENTS_TOPIC_ARN, AWS_PROFILE, AWS_REGION (optional)
@@ -29,7 +26,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Trigger jobs by publishing to SNS')
     parser.add_argument('--topic-arn', default=os.getenv('TRIGGER_EVENTS_TOPIC_ARN'), help='SNS topic ARN (or set TRIGGER_EVENTS_TOPIC_ARN env var)')
     parser.add_argument('--data', help='Path to JSON file or JSON string for the SNS message data field')
-    parser.add_argument('--preset', choices=['extract_audio', 'transcribe_audio', 'cleanup_cache'], help='Use a preset job payload (extends --data)')
+    parser.add_argument('--preset', choices=['extract_audio', 'transcribe_audio', 'cleanup_cache', 'download_media'], help='Use a preset job payload (extends --data)')
     parser.add_argument('--trigger-type', default='batch_job', help='Override trigger_type (default: batch_job)')
     parser.add_argument('--container-image', help='Override the default container image for the job')
     parser.add_argument('--input-bucket', help='S3 bucket for input data')
@@ -80,6 +77,28 @@ def build_transcribe_audio_payload(override=None):
     return base
 
 
+
+def build_download_media_payload(override=None):
+    base = {
+        "script_key": "jobs/media_downloader.py",
+        "compute_type": "cpu",
+        "operation": "download_youtube",
+        "args": {
+            "output_format": "mp4",
+            "quality": "best"
+        }
+    }
+    if override:
+        base.update(override)
+    args = base.get('args', {})
+    if 'source_url' not in args:
+        raise ValueError("source_url must be provided in --data args for download-media preset.")
+    if 'output_key' not in base:
+        raise ValueError("output_key must be provided in --data for download-media preset.")
+    return base
+
+
+
 def build_cleanup_cache_payload(override=None):
     base = {
         "script_key": "jobs/cleanup_processor.py",
@@ -105,6 +124,9 @@ def load_data(args):
     elif args.preset == 'transcribe_audio':
         override = load_json_arg(args.data) if args.data else None
         return build_transcribe_audio_payload(override)
+    elif args.preset == 'download_media':
+        override = load_json_arg(args.data) if args.data else None
+        return build_download_media_payload(override)
     elif args.preset == 'cleanup_cache':
         override = load_json_arg(args.data) if args.data else None
         return build_cleanup_cache_payload(override)

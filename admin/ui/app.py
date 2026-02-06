@@ -68,6 +68,12 @@ PRESETS = {
         "operation": "transcribe_audio",
         "args": {"language": "en", "output_format": "json", "whisper_model": "guillaumekln/faster-whisper-small.en", "pyannote_model": "pyannote/speaker-diarization-community-1"}
     },
+    "download_media": {
+        "script_key": "jobs/media_downloader.py",
+        "compute_type": "cpu",
+        "operation": "download_youtube",
+        "args": {"output_format": "mp4", "quality": "best"}
+    },
     "cleanup_cache": {
         "script_key": "jobs/cleanup_processor.py",
         "compute_type": "cpu",
@@ -87,6 +93,8 @@ async def index(request: Request):
 @app.post("/preview", response_class=JSONResponse)
 async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form(None),
                   input_key: Optional[str] = Form(None), output_key: Optional[str] = Form(None),
+                  source_url: Optional[str] = Form(None), output_format: Optional[str] = Form(None),
+                  quality: Optional[str] = Form(None),
                   container_image: Optional[str] = Form(None),
                   input_bucket: Optional[str] = Form(None), output_bucket: Optional[str] = Form(None), model_bucket: Optional[str] = Form(None)):
     # Build base data
@@ -111,6 +119,12 @@ async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form
         base["output_key"] = output_key
     if container_image:
         base["container_image"] = container_image
+    if source_url:
+        base.setdefault("args", {})["source_url"] = source_url
+    if output_format:
+        base.setdefault("args", {})["output_format"] = output_format
+    if quality:
+        base.setdefault("args", {})["quality"] = quality
 
     # Always append timestamp to output_key if present
     if 'output_key' in base:
@@ -139,6 +153,8 @@ async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form
 @app.post("/publish", response_class=JSONResponse)
 async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] = Form(None), data: Optional[str] = Form(None),
                   input_key: Optional[str] = Form(None), output_key: Optional[str] = Form(None),
+                  source_url: Optional[str] = Form(None), output_format: Optional[str] = Form(None),
+                  quality: Optional[str] = Form(None),
                   container_image: Optional[str] = Form(None),
                   input_bucket: Optional[str] = Form(None), output_bucket: Optional[str] = Form(None), model_bucket: Optional[str] = Form(None)):
     # Determine topic
@@ -148,6 +164,7 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
 
     # Reuse preview builder
     preview_resp = await preview(preset=preset, data=data, input_key=input_key, output_key=output_key,
+                                 source_url=source_url, output_format=output_format, quality=quality,
                                  container_image=container_image,
                                  input_bucket=input_bucket, output_bucket=output_bucket, model_bucket=model_bucket)
     if isinstance(preview_resp, JSONResponse) and preview_resp.status_code != 200:
@@ -173,6 +190,9 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
                 "script_key": payload.get('data', {}).get('script_key', 'unknown'),
                 "input_key": input_key,
                 "output_key": output_key,
+                "source_url": source_url,
+                "output_format": output_format,
+                "quality": quality,
                 "container_image": container_image,
                 "input_bucket": input_bucket,
                 "output_bucket": output_bucket,
@@ -201,6 +221,9 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
                 "script_key": payload.get('data', {}).get('script_key', 'unknown'),
                 "input_key": input_key,
                 "output_key": output_key,
+                "source_url": source_url,
+                "output_format": output_format,
+                "quality": quality,
                 "container_image": container_image,
                 "input_bucket": input_bucket,
                 "output_bucket": output_bucket,
