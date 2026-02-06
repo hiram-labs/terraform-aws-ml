@@ -14,7 +14,7 @@ Usage:
     # Pyannote speaker diarization models (requires HuggingFace token)
     python src/download_models.py --bucket my-models \
         --model-type pyannote \
-        --model-names pyannote/speaker-diarization-3.1,pyannote/segmentation-3.0 \
+        --model-names pyannote/speaker-diarization-community-1,pyannote/segmentation-3.0 \
         --hf-token YOUR_TOKEN
     
     # Any other HuggingFace model
@@ -220,5 +220,5 @@ def main():
 if __name__ == '__main__':
     main()
 
-# python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-3.1
+# python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type pyannote --model-names pyannote/speaker-diarization-community-1
 # python scripts/download_models.py --bucket ml-pipeline-ml-models --model-type whisper --model-names guillaumekln/faster-whisper-small.en

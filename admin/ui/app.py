@@ -66,7 +66,7 @@ PRESETS = {
         "script_key": "jobs/transcribe_processor.py",
         "compute_type": "gpu",
         "operation": "transcribe_audio",
-        "args": {"language": "en", "output_format": "json", "whisper_model": "guillaumekln/faster-whisper-small.en", "pyannote_model": "pyannote/speaker-diarization-3.1"}
+        "args": {"language": "en", "output_format": "json", "whisper_model": "guillaumekln/faster-whisper-small.en", "pyannote_model": "pyannote/speaker-diarization-community-1"}
     },
     "cleanup_cache": {
         "script_key": "jobs/cleanup_processor.py",

@@ -67,7 +67,7 @@ def build_transcribe_audio_payload(override=None):
             "language": "en",
             "output_format": "json",
             "whisper_model": "guillaumekln/faster-whisper-small.en",
-            "pyannote_model": "pyannote/speaker-diarization-3.1"
+            "pyannote_model": "pyannote/speaker-diarization-community-1"
         }
     }
     if override:
