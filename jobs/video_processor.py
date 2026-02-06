@@ -36,11 +36,15 @@ import sys
 import json
 import boto3
 import subprocess
+import time
+import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional
+from botocore.exceptions import ClientError
 import tempfile
 import logging
-from typing import Dict, List, Optional
 
 # Setup logging
 logging.basicConfig(
@@ -52,8 +56,31 @@ logger = logging.getLogger(__name__)
 INPUT_BUCKET = os.environ.get('INPUT_BUCKET')
 OUTPUT_BUCKET = os.environ.get('OUTPUT_BUCKET')
 COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
+S3_RETRY_ATTEMPTS = 3
+S3_RETRY_DELAY = 2
+MAX_INPUT_SIZE_GB = 10
 
 s3_client = boto3.client('s3')
+
+
+def s3_download_with_retry(bucket: str, key: str, filepath: str, max_retries: int = S3_RETRY_ATTEMPTS):
+    """Download from S3 with exponential backoff retry logic"""
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Downloading s3://{bucket}/{key} (attempt {attempt+1}/{max_retries})")
+            s3_client.download_file(bucket, key, filepath)
+            return
+        except ClientError as e:
+            if attempt < max_retries - 1:
+                wait_time = S3_RETRY_DELAY * (2 ** attempt)
+                logger.warning(f"S3 download failed: {e}. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                logger.error(f"S3 download failed after {max_retries} attempts: {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Unexpected error downloading from S3: {e}")
+            raise
 
 
 class FFmpegOperation(ABC):
@@ -70,18 +97,28 @@ class FFmpegOperation(ABC):
         pass
     
     def execute(self, input_file: str, output_file: str) -> str:
-        """Execute the ffmpeg operation"""
+        """Execute the ffmpeg operation with timing and error handling"""
         cmd = ['ffmpeg', '-i', input_file] + self.build_command(input_file, output_file) + ['-f', self.format, '-y', output_file]
         
-        logger.info(f"Running command: {' '.join(cmd)}")
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        logger.info(f"Running FFmpeg: {' '.join(cmd)}")
+        t0 = time.time()
         
-        if result.returncode != 0:
-            logger.error(f"FFmpeg error: {result.stderr}")
-            raise RuntimeError(f"FFmpeg operation failed: {result.stderr}")
-        
-        logger.info("Operation completed successfully")
-        return output_file
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)  # 1-hour timeout
+            elapsed = time.time() - t0
+            
+            if result.returncode != 0:
+                logger.error(f"FFmpeg error (exit code {result.returncode}): {result.stderr}")
+                raise RuntimeError(f"FFmpeg operation failed: {result.stderr}")
+            
+            logger.info(f"FFmpeg completed in {elapsed:.1f}s")
+            return output_file
+        except subprocess.TimeoutExpired:
+            logger.error(f"FFmpeg operation timed out after 3600s")
+            raise RuntimeError("FFmpeg operation timed out")
+        except Exception as e:
+            logger.error(f"FFmpeg execution error: {e}")
+            raise
 
 
 class ExtractAudioOperation(FFmpegOperation):
@@ -152,15 +189,40 @@ class FFmpegProcessor:
                 local_output = os.path.join(tmpdir, 'output_file')
                 
                 logger.info("Downloading input from S3...")
-                s3_client.download_file(self.input_bucket, self.input_key, local_input)
+                s3_download_with_retry(self.input_bucket, self.input_key, local_input)
                 logger.info("Input downloaded successfully")
+                
+                # Validate input file
+                input_size = Path(local_input).stat().st_size
+                if input_size == 0:
+                    raise ValueError(f"Downloaded input file is empty (0 bytes)")
+                if input_size > MAX_INPUT_SIZE_GB * 1024 * 1024 * 1024:
+                    raise ValueError(f"Input file too large ({input_size/1e9:.1f}GB, max {MAX_INPUT_SIZE_GB}GB)")
+                logger.info(f"Input file size: {input_size / 1024 / 1024:.1f}MB")
                 
                 operation_class = OPERATIONS[self.operation_type]
                 operation = operation_class(self.args)
                 operation.execute(local_input, local_output)
                 
+                # Validate output file
+                output_size = Path(local_output).stat().st_size
+                if output_size == 0:
+                    raise ValueError(f"Output file is empty (0 bytes) - FFmpeg produced no output")
+                logger.info(f"Output file size: {output_size / 1024 / 1024:.1f}MB")
+                
                 logger.info("Uploading output to S3...")
-                s3_client.upload_file(local_output, self.output_bucket, self.output_key)
+                for attempt in range(S3_RETRY_ATTEMPTS):
+                    try:
+                        s3_client.upload_file(local_output, self.output_bucket, self.output_key)
+                        break
+                    except ClientError as e:
+                        if attempt < S3_RETRY_ATTEMPTS - 1:
+                            wait_time = S3_RETRY_DELAY * (2 ** attempt)
+                            logger.warning(f"S3 upload failed: {e}. Retrying in {wait_time}s...")
+                            time.sleep(wait_time)
+                        else:
+                            logger.error(f"S3 upload failed after {S3_RETRY_ATTEMPTS} attempts: {e}")
+                            raise
                 logger.info("Output uploaded successfully")
                 
                 result = {
@@ -168,6 +230,8 @@ class FFmpegProcessor:
                     'operation': self.operation_type,
                     'input_key': self.input_key,
                     'output_key': self.output_key,
+                    'input_size_mb': round(input_size / 1024 / 1024, 2),
+                    'output_size_mb': round(output_size / 1024 / 1024, 2),
                     'timestamp': datetime.now().isoformat(),
                     'parameters': self.args
                 }
