@@ -185,7 +185,7 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
     def _diarize_audio(self, audio_file: str, model_path: str) -> List[Dict]:
         logger.info(f"Loading pyannote model from: {model_path}")
         
-        pipeline = Pipeline.from_pretrained(model_path, use_auth_token=False)
+        pipeline = Pipeline.from_pretrained(model_path)
         
         if torch.cuda.is_available() and COMPUTE_TYPE == 'gpu':
             pipeline = pipeline.to(torch.device('cuda'))
