@@ -293,11 +293,17 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
                         "Fb": 0.8
                     }
                 }
-                instantiated = pipeline.instantiate(params)
-                if instantiated is not None:
-                    pipeline = instantiated
+                pipeline.instantiate(params)
                 
-                diarization = pipeline(audio_file)
+                diarization_result = pipeline(audio_file)
+                if hasattr(diarization_result, "speaker_diarization"):
+                    diarization = diarization_result.speaker_diarization
+                elif hasattr(diarization_result, "diarization"):
+                    diarization = diarization_result.diarization
+                elif hasattr(diarization_result, "annotation"):
+                    diarization = diarization_result.annotation
+                else:
+                    diarization = diarization_result
                 
                 detected_speakers = len(set(label for label in diarization.labels()))
                 audio_duration = diarization.get_timeline().duration()
@@ -367,14 +373,16 @@ def format_output(segments: List[Dict], output_format: str = 'json') -> str:
             lines.append(f"[{seg['speaker']}] {seg['text']}")
         return '\n'.join(lines)
     elif output_format == 'vtt':
-        lines = ['WEBVTT\n']
-        for seg in segments:
+        lines = ['WEBVTT', '']
+        for i, seg in enumerate(segments, 1):
             start = format_timestamp(seg['start'])
             end = format_timestamp(seg['end'])
             speaker = seg['speaker']
             text = seg['text']
+            lines.append(str(i))
             lines.append(f"{start} --> {end}")
-            lines.append(f"{speaker}\n{text}\n")
+            lines.append(f"<v {speaker}>{text}")
+            lines.append('')
         return '\n'.join(lines)
     elif output_format == 'srt':
         lines = []
@@ -385,7 +393,8 @@ def format_output(segments: List[Dict], output_format: str = 'json') -> str:
             text = seg['text']
             lines.append(str(i))
             lines.append(f"{start} --> {end}")
-            lines.append(f"[{speaker}]\n{text}\n")
+            lines.append(f"[{speaker}] {text}")
+            lines.append('')
         return '\n'.join(lines)
     else:
         return json.dumps(segments, indent=2)
