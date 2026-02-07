@@ -9,4 +9,4 @@ torchaudio==2.8.0
 
 # Audio Processing - Whisper and Speaker Diarization
 faster-whisper==0.10.0
-pyannote.audio>=4.0.0
+pyannote.audio==4.0.0

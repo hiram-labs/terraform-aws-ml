@@ -285,18 +285,22 @@ class TranscribeWithDiarizationOperation(TranscribeOperation):
             try:
                 if threshold_idx > 1:
                     logger.info(f"Retry {threshold_idx}: Using threshold {threshold}")
-                
-                pipeline.clustering = {
-                    "threshold": threshold,
-                    "Fa": 0.07,
-                    "Fb": 0.8
+
+                params = {
+                    "clustering": {
+                        "threshold": threshold,
+                        "Fa": 0.07,
+                        "Fb": 0.8
+                    }
                 }
+                instantiated = pipeline.instantiate(params)
+                if instantiated is not None:
+                    pipeline = instantiated
                 
-                diarization_result = pipeline(audio_file)
-                diarization = getattr(diarization_result, "speaker_diarization", diarization_result)
+                diarization = pipeline(audio_file)
                 
                 detected_speakers = len(set(label for label in diarization.labels()))
-                audio_duration = diarization.get_duration()
+                audio_duration = diarization.get_timeline().duration()
                 logger.info(f"Detected: {detected_speakers} speakers in {audio_duration:.1f}s audio")
                 
                 speakers = []
@@ -419,7 +423,7 @@ class TranscribeProcessor:
         # Get bucket configs from payload first, then fall back to environment variables
         self.input_bucket = job_def.get('input_bucket') or INPUT_BUCKET
         self.output_bucket = job_def.get('output_bucket') or OUTPUT_BUCKET
-        self.models_bucket = job_def.get('models_bucket') or MODELS_BUCKET
+        self.models_bucket = job_def.get('model_bucket') or MODELS_BUCKET
     
     def validate(self):
         """Validate job configuration"""
