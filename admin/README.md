@@ -40,6 +40,15 @@ Ensure your AWS credentials are available via one of:
 - `AWS_PROFILE` env var
 - Default AWS config/credentials files
 
+## YouTube Cookies
+
+Upload browser cookies for restricted videos:
+
+```bash
+yt-dlp --cookies-from-browser firefox --skip-download https://www.youtube.com && \
+aws s3 cp ~/.cache/yt-dlp/cookies.txt s3://${PROJECT_NAME}-ml-input/vault/cookies-www-youtube-com
+```
+
 ## Web UI Control Panel
 
 Run the FastAPI control panel for previewing and publishing SNS job triggers:
@@ -58,8 +67,10 @@ Features:
 
 ## CLI Scripts
 
-| Script              | Purpose                                      | Example Command |
-|---------------------|----------------------------------------------|-----------------|
-| scripts/download_models.py  | Download/upload Hugging Face models to S3     | `python scripts/download_models.py --bucket my-models --model-type whisper --model-names openai/whisper-base,guillaumekln/faster-whisper-small.en` |
-| scripts/trigger_jobs.py     | Trigger jobs via SNS (supports presets: extract-audio, transcribe-audio, download-media; optional: --input-bucket, --output-bucket, --model-bucket, --container-image) | `python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "audio/input.wav"}'` or `python scripts/trigger_jobs.py --preset download-media --data '{"output_key": "media/output.mp4", "args": {"source_url": "https://www.youtube.com/watch?v=...", "output_format": "mp4", "quality": "best", "cookies_s3_key": "cookies/youtube.txt", "cookies_bucket": "my-bucket"}}'` |
-| scripts/upload_jobs.py      | Upload all files in jobs/ to S3               | `python scripts/upload_jobs.py --bucket my-bucket --prefix jobs/` |
+| Script              | Purpose                          |
+|---------------------|----------------------------------|
+| `download_models.py`  | Download Hugging Face models to S3 |
+| `trigger_jobs.py`     | Trigger jobs via SNS (supports: extract-audio, transcribe-audio, download-media) |
+| `upload_jobs.py`      | Upload jobs/ to S3               |
+
+See each script's `--help` for full options.
