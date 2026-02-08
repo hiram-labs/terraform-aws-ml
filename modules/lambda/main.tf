@@ -142,7 +142,7 @@ resource "aws_lambda_function" "trigger_dispatcher" {
 
   environment {
     variables = {
-      BATCH_JOB_QUEUE       = var.batch_job_queue_name
+      BATCH_JOB_QUEUE       = var.gpu_job_queue_name
       ml_gpu_job_DEFINITION = var.ml_gpu_job_definition_name
       CPU_JOB_QUEUE         = var.cpu_job_queue_name
       ml_cpu_job_DEFINITION = var.ml_cpu_job_definition_name
@@ -341,7 +341,7 @@ resource "aws_cloudwatch_event_rule" "batch_job_state_change" {
     source      = ["aws.batch"]
     detail-type = ["Batch Job State Change"]
     detail = {
-      jobQueue = [var.batch_job_queue_arn]
+      jobQueue = compact([var.gpu_job_queue_arn, var.cpu_job_queue_arn])
       status   = ["SUCCEEDED", "FAILED"]
     }
   })

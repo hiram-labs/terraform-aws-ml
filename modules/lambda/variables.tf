@@ -38,13 +38,18 @@ variable "ml_output_bucket_arn" {
   type        = string
 }
 
-variable "batch_job_queue_name" {
-  description = "Name of the Batch job queue"
+variable "gpu_job_queue_name" {
+  description = "Name of the GPU Batch job queue"
   type        = string
 }
 
-variable "batch_job_queue_arn" {
-  description = "ARN of the Batch job queue"
+variable "gpu_job_queue_arn" {
+  description = "ARN of the GPU Batch job queue"
+  type        = string
+}
+
+variable "cpu_job_queue_arn" {
+  description = "ARN of the CPU Batch job queue"
   type        = string
 }
 

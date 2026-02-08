@@ -3,13 +3,13 @@ output "batch_compute_environment_arn" {
   value       = aws_batch_compute_environment.gpu_compute_env.arn
 }
 
-output "batch_job_queue_arn" {
-  description = "ARN of the Batch job queue"
+output "gpu_job_queue_arn" {
+  description = "ARN of the GPU Batch job queue"
   value       = aws_batch_job_queue.ml_job_queue.arn
 }
 
-output "batch_job_queue_name" {
-  description = "Name of the Batch job queue"
+output "gpu_job_queue_name" {
+  description = "Name of the GPU Batch job queue"
   value       = aws_batch_job_queue.ml_job_queue.name
 }
 

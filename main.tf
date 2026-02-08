@@ -118,8 +118,9 @@ module "lambda" {
   ml_output_bucket_arn       = module.s3.ml_output_bucket_arn
   ml_models_bucket           = module.s3.ml_models_bucket_name
   ml_vault_bucket            = module.s3.ml_vault_bucket_name
-  batch_job_queue_name       = module.batch.batch_job_queue_name
-  batch_job_queue_arn        = module.batch.batch_job_queue_arn
+  gpu_job_queue_name         = module.batch.gpu_job_queue_name
+  gpu_job_queue_arn          = module.batch.gpu_job_queue_arn
+  cpu_job_queue_arn          = module.batch.cpu_job_queue_arn
   batch_job_role_arn         = module.batch.batch_job_role_arn
   batch_ecs_task_execution_role_arn = module.batch.batch_ecs_task_execution_role_arn
   ml_gpu_job_definition_name = module.batch.ml_gpu_job_definition_name

@@ -84,14 +84,14 @@ output "batch_compute_environment_arn" {
   value       = module.batch.batch_compute_environment_arn
 }
 
-output "batch_job_queue" {
-  description = "AWS Batch job queue name for ML workloads"
-  value       = module.batch.batch_job_queue_name
+output "gpu_job_queue" {
+  description = "GPU Batch job queue name for ML workloads"
+  value       = module.batch.gpu_job_queue_name
 }
 
-output "batch_job_queue_arn" {
-  description = "ARN of the Batch job queue"
-  value       = module.batch.batch_job_queue_arn
+output "gpu_job_queue_arn" {
+  description = "ARN of the GPU Batch job queue"
+  value       = module.batch.gpu_job_queue_arn
 }
 
 output "ml_gpu_job_definition" {
