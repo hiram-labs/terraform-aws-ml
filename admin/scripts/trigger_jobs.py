@@ -26,7 +26,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Trigger jobs by publishing to SNS')
     parser.add_argument('--topic-arn', default=os.getenv('TRIGGER_EVENTS_TOPIC_ARN'), help='SNS topic ARN (or set TRIGGER_EVENTS_TOPIC_ARN env var)')
     parser.add_argument('--data', help='Path to JSON file or JSON string for the SNS message data field')
-    parser.add_argument('--preset', choices=['cleanup_cache', 'extract_audio', 'transcribe_audio', 'download_media', 'scoring_processor'], help='Use a preset job payload (extends --data)')
+    parser.add_argument('--preset', choices=['cleanup_processor', 'video_processor', 'transcribe_processor', 'download_processor', 'scoring_processor'], help='Use a preset job payload (extends --data)')
     parser.add_argument('--trigger-type', default='batch_job', help='Override trigger_type (default: batch_job)')
     parser.add_argument('--container-image', help='Override the default container image for the job')
     parser.add_argument('--input-bucket', help='S3 bucket for input data')
@@ -38,7 +38,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def build_cleanup_cache_payload(override=None):
+def build_cleanup_processor_payload(override=None):
     base = {
         "script_key": "jobs/cleanup_processor.py",
         "compute_type": "cpu",
@@ -49,7 +49,7 @@ def build_cleanup_cache_payload(override=None):
     return base
 
 
-def build_extract_audio_payload(override=None):
+def build_video_processor_payload(override=None):
     base = {
         "script_key": "jobs/video_processor.py",
         "compute_type": "cpu",
@@ -66,7 +66,7 @@ def build_extract_audio_payload(override=None):
     return base
 
 
-def build_transcribe_audio_payload(override=None):
+def build_transcribe_processor_payload(override=None):
     base = {
         "script_key": "jobs/transcribe_processor.py",
         "compute_type": "gpu",
@@ -89,9 +89,9 @@ def build_transcribe_audio_payload(override=None):
 
 
 
-def build_download_media_payload(override=None):
+def build_download_processor_payload(override=None):
     base = {
-        "script_key": "jobs/media_downloader.py",
+        "script_key": "jobs/download_processor.py",
         "compute_type": "cpu",
         "operation": "download_youtube",
         "args": {
@@ -141,18 +141,18 @@ def load_json_arg(arg):
 
 
 def load_data(args):
-    if args.preset == 'extract_audio':
+    if args.preset == 'video_processor':
         override = load_json_arg(args.data) if args.data else None
-        return build_extract_audio_payload(override)
-    elif args.preset == 'transcribe_audio':
+        return build_video_processor_payload(override)
+    elif args.preset == 'transcribe_processor':
         override = load_json_arg(args.data) if args.data else None
-        return build_transcribe_audio_payload(override)
-    elif args.preset == 'download_media':
+        return build_transcribe_processor_payload(override)
+    elif args.preset == 'download_processor':
         override = load_json_arg(args.data) if args.data else None
-        return build_download_media_payload(override)
-    elif args.preset == 'cleanup_cache':
+        return build_download_processor_payload(override)
+    elif args.preset == 'cleanup_processor':
         override = load_json_arg(args.data) if args.data else None
-        return build_cleanup_cache_payload(override)
+        return build_cleanup_processor_payload(override)
     elif args.preset == 'scoring_processor':
         override = load_json_arg(args.data) if args.data else None
         return build_scoring_processor_payload(override)

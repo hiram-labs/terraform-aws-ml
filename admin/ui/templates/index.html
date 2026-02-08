@@ -204,7 +204,7 @@
         </div>
 
         <!-- Preset-specific Fields -->
-        <div class="preset-field preset-field-group" data-presets="extract_audio,transcribe_audio">
+        <div class="preset-field preset-field-group" data-presets="video_processor,transcribe_processor">
           <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Job Inputs</div>
           <div class="row">
             <div class="col-md-6 mb-3">
@@ -218,7 +218,7 @@
           </div>
         </div>
 
-        <div class="preset-field preset-field-group" data-presets="download_media">
+        <div class="preset-field preset-field-group" data-presets="download_processor">
           <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Media Download</div>
           <div class="mb-3">
             <label class="form-label">Source URL <span class="text-danger">*</span></label>
@@ -359,7 +359,7 @@
         }
 
         // Additional validation for required fields based on preset
-        if (preset === 'extract_audio' || preset === 'transcribe_audio') {
+        if (preset === 'video_processor' || preset === 'transcribe_processor') {
           const inputKey = document.getElementById('input_key').value.trim();
           const outputKey = document.getElementById('output_key').value.trim();
           if (!inputKey || !outputKey) {
@@ -368,7 +368,7 @@
           }
         }
 
-        if (preset === 'download_media') {
+        if (preset === 'download_processor') {
           const sourceUrl = document.getElementById('source_url').value.trim();
           const outputKey = document.getElementById('output_key').value.trim();
           if (!sourceUrl || !outputKey) {

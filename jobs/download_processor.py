@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Media Downloader for AWS Batch
+Download Processor for AWS Batch
 
 Extensible framework for downloading media from various sources.
 Downloads media to local temp, uploads to S3 for downstream processing.
@@ -17,7 +17,7 @@ SNS Trigger Format:
 {
   "trigger_type": "batch_job",
   "data": {
-    "script_key": "jobs/media_downloader.py",
+    "script_key": "jobs/download_processor.py",
     "compute_type": "cpu",
     "operation": "download_youtube",
     "output_key": "media/output.mp4",
