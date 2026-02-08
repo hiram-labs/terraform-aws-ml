@@ -8,7 +8,7 @@ Each AWS service is managed by a dedicated Terraform module for consistency and 
 
 - **VPC Module** (`modules/vpc`) - Networking with public subnets (auto-assign public IP enabled)
 - **SNS Module** (`modules/sns`) - Event topics for triggering and notifications
-- **S3 Module** (`modules/s3`) - Data buckets for inputs, outputs, and models
+- **S3 Module** (`modules/s3`) - Data buckets for inputs, outputs, models and vault
 - **Batch Module** (`modules/batch`) - GPU and CPU compute environments
 - **Lambda Module** (`modules/lambda`) - Event dispatcher with compute routing and monitoring
 

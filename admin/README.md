@@ -42,11 +42,11 @@ Ensure your AWS credentials are available via one of:
 
 ## YouTube Cookies
 
-Upload browser cookies for restricted videos:
+Export browser cookies for restricted videos:
 
 ```bash
-yt-dlp --cookies-from-browser firefox --skip-download https://www.youtube.com && \
-aws s3 cp ~/.cache/yt-dlp/cookies.txt s3://${PROJECT_NAME}-ml-input/vault/cookies-www-youtube-com
+python3 admin/scripts/export_cookies.py \
+   --s3-uri s3://${PROJECT_NAME}-ml-vault/cookies-www-youtube-com
 ```
 
 ## Web UI Control Panel
@@ -72,5 +72,6 @@ Features:
 | `download_models.py`  | Download Hugging Face models to S3 |
 | `trigger_jobs.py`     | Trigger jobs via SNS (supports: extract-audio, transcribe-audio, download-media) |
 | `upload_jobs.py`      | Upload jobs/ to S3               |
+| `export_cookies.py` | Export YouTube/Google cookies from Firefox to Netscape format and upload to S3 |
 
 See each script's `--help` for full options.
