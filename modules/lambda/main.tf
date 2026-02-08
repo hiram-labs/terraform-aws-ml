@@ -315,6 +315,7 @@ resource "aws_lambda_function" "batch_job_monitor" {
     variables = {
       SNS_TOPIC_ARN = var.notifications_topic_arn
       DLQ_URL       = aws_sqs_queue.ml_trigger_dlq.id
+      ML_OUTPUT_BUCKET = var.ml_output_bucket
     }
   }
 
