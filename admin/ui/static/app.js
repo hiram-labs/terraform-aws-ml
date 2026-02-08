@@ -89,10 +89,10 @@ async function loadHistory() {
       const status = job.status || 'unknown';
       const statusClass = status === 'success' ? 'success' : status === 'failed' ? 'failed' : '';
       const statusBadge = status === 'success' 
-        ? '<span class="badge bg-success">Success</span>' 
+        ? '<button class="badge bg-success border-0" type="button" data-show-history-timestamp="' + job.timestamp + '">Success</button>' 
         : status === 'failed'
-        ? '<span class="badge bg-danger">Failed</span>'
-        : '<span class="badge bg-secondary">Unknown</span>';
+        ? '<button class="badge bg-danger border-0" type="button" data-show-history-timestamp="' + job.timestamp + '">Failed</button>'
+        : '<button class="badge bg-secondary border-0" type="button" data-show-history-timestamp="' + job.timestamp + '">Unknown</button>';
       
       html += `
         <div class="list-group-item history-item ${statusClass}">
@@ -147,6 +147,13 @@ async function loadHistory() {
       });
     });
 
+    document.querySelectorAll('[data-show-history-timestamp]').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        const timestamp = e.currentTarget.getAttribute('data-show-history-timestamp');
+        showHistoryEntry(timestamp);
+      });
+    });
+
     document.querySelectorAll('[data-logs-timestamp]').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         const timestamp = e.currentTarget.getAttribute('data-logs-timestamp');
@@ -172,6 +179,24 @@ async function deleteHistoryEntry(timestamp) {
   } catch (error) {
     document.getElementById('output').textContent = JSON.stringify({ error: error.message }, null, 2);
   }
+}
+
+function showHistoryEntry(timestamp) {
+  // Fetch the history and find the matching entry
+  fetch('/history')
+    .then(resp => resp.json())
+    .then(json => {
+      let history = json.history || [];
+      const entry = history.find(h => h.timestamp === timestamp);
+      if (entry) {
+        document.getElementById('output').textContent = JSON.stringify(entry, null, 2);
+      } else {
+        document.getElementById('output').textContent = JSON.stringify({ error: 'History entry not found' }, null, 2);
+      }
+    })
+    .catch(error => {
+      document.getElementById('output').textContent = JSON.stringify({ error: error.message }, null, 2);
+    });
 }
 
 async function tailLogs(timestamp) {
