@@ -184,6 +184,24 @@ variable "ml_input_retention_days" {
   default     = 90
 }
 
+variable "ml_output_retention_days" {
+  type        = number
+  description = "Days to retain output results in S3"
+  default     = 365
+}
+
+variable "ml_model_retention_days" {
+  type        = number
+  description = "Days to retain noncurrent model versions in S3"
+  default     = 730
+}
+
+variable "ml_vault_retention_days" {
+  type        = number
+  description = "Days to retain noncurrent vault versions in S3"
+  default     = 365
+}
+
 ###############################################################
 # Monitoring & Notifications                                   #
 ###############################################################

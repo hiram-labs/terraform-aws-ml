@@ -27,3 +27,13 @@ output "ml_models_bucket_arn" {
   description = "ARN of the ML models bucket"
   value       = aws_s3_bucket.ml_models_bucket.arn
 }
+
+output "ml_vault_bucket_name" {
+  description = "Name of the ML vault bucket"
+  value       = aws_s3_bucket.ml_vault_bucket.id
+}
+
+output "ml_vault_bucket_arn" {
+  description = "ARN of the ML vault bucket"
+  value       = aws_s3_bucket.ml_vault_bucket.arn
+}

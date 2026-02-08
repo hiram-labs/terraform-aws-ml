@@ -36,7 +36,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "ml_input_lifecycle" {
   bucket = aws_s3_bucket.ml_input_bucket.id
 
   rule {
-    id     = "archive-old-inputs"
+    id     = "transition-and-expire-old-inputs"
     status = "Enabled"
 
     filter {}
@@ -90,7 +90,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "ml_output_lifecycle" {
   bucket = aws_s3_bucket.ml_output_bucket.id
 
   rule {
-    id     = "transition-old-results"
+    id     = "transition-and-expire-old-results"
     status = "Enabled"
 
     filter {}
@@ -103,6 +103,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "ml_output_lifecycle" {
     transition {
       days          = 180
       storage_class = "DEEP_ARCHIVE"
+    }
+
+    expiration {
+      days = var.output_retention_days
     }
   }
 }
@@ -137,6 +141,70 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "ml_models_encrypt
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "ml_models_lifecycle" {
+  bucket = aws_s3_bucket.ml_models_bucket.id
+
+  rule {
+    id     = "retain-model-versions"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = var.model_retention_days
+    }
+  }
+}
+
+###############################################################
+# S3 Bucket for Vault (Secure Storage)                       #
+###############################################################
+resource "aws_s3_bucket" "ml_vault_bucket" {
+  bucket        = "${var.project_name}-ml-vault"
+  force_destroy = var.force_destroy
+
+  tags = merge(
+    var.common_tags,
+    {
+      Name    = "${var.project_name}-ml-vault"
+      Purpose = "ML Vault Secure Storage"
+    }
+  )
+}
+
+resource "aws_s3_bucket_versioning" "ml_vault_versioning" {
+  bucket = aws_s3_bucket.ml_vault_bucket.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "ml_vault_encryption" {
+  bucket = aws_s3_bucket.ml_vault_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "ml_vault_lifecycle" {
+  bucket = aws_s3_bucket.ml_vault_bucket.id
+
+  rule {
+    id     = "retain-vault-data"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = var.vault_retention_days
     }
   }
 }
