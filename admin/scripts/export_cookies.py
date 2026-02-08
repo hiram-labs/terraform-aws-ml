@@ -148,4 +148,4 @@ def main() -> int:
 if __name__ == "__main__":
     raise SystemExit(main())
 
-# python admin/scripts/export_youtube_cookies.py --s3-uri s3://ml-pipeline-ml-vault/cookies-www-youtube-com
+# python admin/scripts/export_cookies.py --s3-uri s3://ml-pipeline-ml-vault/cookies-www-youtube-com
