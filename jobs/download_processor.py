@@ -25,14 +25,13 @@ SNS Trigger Format:
       "source_url": "https://www.youtube.com/watch?v=...",
       "output_format": "mp4",
       "quality": "best",
-            "cookies_s3_key": "cookies/youtube_cookies.txt",
-            "cookies_bucket": "my-private-bucket"
+      "cookies_s3_key": "youtube_cookies.txt"
     }
   }
 }
 
-The cookies_s3_key field should point to a Netscape-format cookies file in S3.
-Use cookies_bucket to override the bucket (defaults to OUTPUT_BUCKET).
+The cookies_s3_key field should point to a Netscape-format cookies file in the VAULT_BUCKET.
+To override the bucket, provide cookies_bucket in args (defaults to VAULT_BUCKET).
 """
 
 import os
@@ -56,6 +55,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 OUTPUT_BUCKET = os.environ.get('OUTPUT_BUCKET')
+VAULT_BUCKET = os.environ.get('VAULT_BUCKET')
 COMPUTE_TYPE = os.environ.get('COMPUTE_TYPE', 'cpu')
 S3_RETRY_ATTEMPTS = 3
 S3_RETRY_DELAY = 2
@@ -106,10 +106,10 @@ class YouTubeDownloadOperation(MediaDownloadOperation):
         quality = self.args.get('quality', 'best')
         output_format = self.args.get('output_format', 'mp4')
         cookies_s3_key = self.args.get('cookies_s3_key')
-        cookies_bucket = self.args.get('cookies_bucket')
+        cookies_bucket = self.args.get('cookies_bucket', VAULT_BUCKET)
         
         if cookies_s3_key and not cookies_bucket:
-            raise ValueError("cookies_bucket is required when cookies_s3_key is provided")
+            raise ValueError("VAULT_BUCKET environment variable not set and cookies_bucket not provided")
         
         if not self.source_url:
             raise ValueError("source_url is required for YouTube download")
@@ -129,10 +129,10 @@ class YouTubeDownloadOperation(MediaDownloadOperation):
                 else:
                     efs_cookies_path.parent.mkdir(parents=True, exist_ok=True)
                     s3_client.download_file(cookies_bucket, cookies_s3_key, str(efs_cookies_path))
-                    logger.info(f"Downloaded and cached cookies from s3://{cookies_bucket}/{cookies_s3_key} to {efs_cookies_path}")
+                    logger.info(f"Downloaded and cached cookies from vault s3://{cookies_bucket}/{cookies_s3_key} to {efs_cookies_path}")
                     cookies_file = str(efs_cookies_path)
             except Exception as e:
-                logger.warning(f"Failed to download cookies from S3: {e}")
+                logger.warning(f"Failed to download cookies from vault: {e}")
                 cookies_file = None
         
         format_spec = self._get_format_spec(quality, output_format)
@@ -245,6 +245,8 @@ class MediaDownloader:
             logger.info(f"Operation: {self.operation_type}")
             logger.info(f"Compute type: {COMPUTE_TYPE}")
             logger.info(f"Output: s3://{self.output_bucket}/{self.output_key}")
+            if self.data.get('args', {}).get('cookies_s3_key'):
+                logger.info(f"Vault: s3://{VAULT_BUCKET} (for cookies)")
             
             with tempfile.TemporaryDirectory() as tmpdir:
                 local_output = os.path.join(tmpdir, 'media_file')
