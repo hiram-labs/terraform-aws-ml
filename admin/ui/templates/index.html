@@ -255,6 +255,31 @@
           </div>
         </div>
 
+        <div class="preset-field preset-field-group" data-presets="scoring_processor">
+          <div class="form-section-title" style="border-color: #0d6efd; color: #0d6efd;">Segment Scoring</div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Input Key <span class="text-danger">*</span></label>
+              <input class="form-control" name="input_key" id="input_key" placeholder="transcripts/input.json" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Output Key <span class="text-danger">*</span></label>
+              <input class="form-control" name="output_key" id="output_key" placeholder="scored/output.json" required>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">LLM Provider <span class="text-danger">*</span></label>
+              <input class="form-control" name="llm_provider" id="llm_provider" placeholder="bedrock" required>
+            </div>
+            <div class="col-md-6 mb-0">
+              <label class="form-label">LLM Model <span class="text-danger">*</span></label>
+              <input class="form-control" name="llm_model" id="llm_model" placeholder="anthropic.claude-3-sonnet-20240229-v1:0" required>
+            </div>
+          </div>
+        </div>
+
         <!-- Advanced Section -->
         <div class="form-section">
           <div class="form-section-title">Advanced</div>
@@ -348,6 +373,17 @@
           const outputKey = document.getElementById('output_key').value.trim();
           if (!sourceUrl || !outputKey) {
             alert('Source URL and Output Key are required for this preset');
+            return false;
+          }
+        }
+
+        if (preset === 'scoring_processor') {
+          const inputKey = document.getElementById('input_key').value.trim();
+          const outputKey = document.getElementById('output_key').value.trim();
+          const llmProvider = document.getElementById('llm_provider').value.trim();
+          const llmModel = document.getElementById('llm_model').value.trim();
+          if (!inputKey || !outputKey || !llmProvider || !llmModel) {
+            alert('Input Key, Output Key, LLM Provider, and LLM Model are required for this preset');
             return false;
           }
         }

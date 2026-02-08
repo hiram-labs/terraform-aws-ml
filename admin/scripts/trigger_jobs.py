@@ -26,7 +26,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Trigger jobs by publishing to SNS')
     parser.add_argument('--topic-arn', default=os.getenv('TRIGGER_EVENTS_TOPIC_ARN'), help='SNS topic ARN (or set TRIGGER_EVENTS_TOPIC_ARN env var)')
     parser.add_argument('--data', help='Path to JSON file or JSON string for the SNS message data field')
-    parser.add_argument('--preset', choices=['extract_audio', 'transcribe_audio', 'cleanup_cache', 'download_media'], help='Use a preset job payload (extends --data)')
+    parser.add_argument('--preset', choices=['cleanup_cache', 'extract_audio', 'transcribe_audio', 'download_media', 'scoring_processor'], help='Use a preset job payload (extends --data)')
     parser.add_argument('--trigger-type', default='batch_job', help='Override trigger_type (default: batch_job)')
     parser.add_argument('--container-image', help='Override the default container image for the job')
     parser.add_argument('--input-bucket', help='S3 bucket for input data')
@@ -36,6 +36,17 @@ def parse_arguments():
     parser.add_argument('--project', default='ml-pipeline', help='Override metadata.project')
     parser.add_argument('--region', default=os.getenv('AWS_REGION', 'us-east-1'), help='AWS region')
     return parser.parse_args()
+
+
+def build_cleanup_cache_payload(override=None):
+    base = {
+        "script_key": "jobs/cleanup_processor.py",
+        "compute_type": "cpu",
+        "operation": "cleanup_cache"
+    }
+    if override:
+        base.update(override)
+    return base
 
 
 def build_extract_audio_payload(override=None):
@@ -98,15 +109,27 @@ def build_download_media_payload(override=None):
     return base
 
 
-
-def build_cleanup_cache_payload(override=None):
+def build_scoring_processor_payload(override=None):
     base = {
-        "script_key": "jobs/cleanup_processor.py",
+        "script_key": "jobs/scoring_processor.py",
         "compute_type": "cpu",
-        "operation": "cleanup_cache"
+        "operation": "score_virality",
+        "args": {
+            "llm_provider": "bedrock",
+            "llm_model": "anthropic.claude-3-sonnet-20240229-v1:0"
+        }
     }
     if override:
         base.update(override)
+    if 'llm_provider' not in base['args']:
+        raise ValueError("llm_provider must be provided in --data args for scoring-processor preset.")
+    if 'llm_model' not in base['args']:
+        raise ValueError("llm_model must be provided in --data args for scoring-processor preset.")
+    if 'input_key' not in base:
+        raise ValueError("input_key must be provided in --data for scoring-processor preset.")
+    if 'output_key' not in base:
+        input_key = base['input_key']
+        base['output_key'] = input_key.rsplit('.', 1)[0] + '_scored.json'
     return base
 
 
@@ -130,6 +153,9 @@ def load_data(args):
     elif args.preset == 'cleanup_cache':
         override = load_json_arg(args.data) if args.data else None
         return build_cleanup_cache_payload(override)
+    elif args.preset == 'scoring_processor':
+        override = load_json_arg(args.data) if args.data else None
+        return build_scoring_processor_payload(override)
     if args.data:
         return load_json_arg(args.data)
     raise ValueError("Either --data or --preset must be provided.")
@@ -174,6 +200,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# python scripts/trigger_jobs.py --preset extract-audio --data '{"input_key": "media/sintel-short.mp4", "output_key": "media/sintel-short.wav"}'
-# python scripts/trigger_jobs.py --preset transcribe-audio --data '{"input_key": "media/sintel-short.wav", "output_key": "data/sintel-short.json"}' --input-bucket ml-pipeline-ml-output

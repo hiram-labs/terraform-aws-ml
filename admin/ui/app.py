@@ -56,6 +56,11 @@ BUCKETS = {
 }
 
 PRESETS = {
+    "cleanup_cache": {
+        "script_key": "jobs/cleanup_processor.py",
+        "compute_type": "cpu",
+        "operation": "cleanup_cache"
+    },
     "extract_audio": {
         "script_key": "jobs/video_processor.py",
         "compute_type": "cpu",
@@ -74,10 +79,14 @@ PRESETS = {
         "operation": "download_youtube",
         "args": {"output_format": "mp4", "quality": "best"}
     },
-    "cleanup_cache": {
-        "script_key": "jobs/cleanup_processor.py",
+    "scoring_processor": {
+        "script_key": "jobs/scoring_processor.py",
         "compute_type": "cpu",
-        "operation": "cleanup_cache"
+        "operation": "score_virality",
+        "args": {
+            "llm_provider": "bedrock",
+            "llm_model": "anthropic.claude-3-sonnet-20240229-v1:0"
+        }
     }
 }
 
@@ -93,8 +102,8 @@ async def index(request: Request):
 @app.post("/preview", response_class=JSONResponse)
 async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form(None),
                   input_key: Optional[str] = Form(None), output_key: Optional[str] = Form(None),
-                  source_url: Optional[str] = Form(None), output_format: Optional[str] = Form(None),
-                  quality: Optional[str] = Form(None),
+                  source_url: Optional[str] = Form(None), output_format: Optional[str] = Form(None), quality: Optional[str] = Form(None),
+                  llm_provider: Optional[str] = Form(None), llm_model: Optional[str] = Form(None),
                   container_image: Optional[str] = Form(None),
                   input_bucket: Optional[str] = Form(None), output_bucket: Optional[str] = Form(None), model_bucket: Optional[str] = Form(None)):
     # Build base data
@@ -125,6 +134,10 @@ async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form
         base.setdefault("args", {})["output_format"] = output_format
     if quality:
         base.setdefault("args", {})["quality"] = quality
+    if llm_provider:
+        base.setdefault("args", {})["llm_provider"] = llm_provider
+    if llm_model:
+        base.setdefault("args", {})["llm_model"] = llm_model
 
     # Always append timestamp to output_key if present
     if 'output_key' in base:
@@ -153,8 +166,8 @@ async def preview(preset: Optional[str] = Form(None), data: Optional[str] = Form
 @app.post("/publish", response_class=JSONResponse)
 async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] = Form(None), data: Optional[str] = Form(None),
                   input_key: Optional[str] = Form(None), output_key: Optional[str] = Form(None),
-                  source_url: Optional[str] = Form(None), output_format: Optional[str] = Form(None),
-                  quality: Optional[str] = Form(None),
+                  source_url: Optional[str] = Form(None), output_format: Optional[str] = Form(None), quality: Optional[str] = Form(None),
+                  llm_provider: Optional[str] = Form(None), llm_model: Optional[str] = Form(None),
                   container_image: Optional[str] = Form(None),
                   input_bucket: Optional[str] = Form(None), output_bucket: Optional[str] = Form(None), model_bucket: Optional[str] = Form(None)):
     # Determine topic
@@ -165,6 +178,7 @@ async def publish(topic_arn: Optional[str] = Form(None), preset: Optional[str] =
     # Reuse preview builder
     preview_resp = await preview(preset=preset, data=data, input_key=input_key, output_key=output_key,
                                  source_url=source_url, output_format=output_format, quality=quality,
+                                 llm_provider=llm_provider, llm_model=llm_model,
                                  container_image=container_image,
                                  input_bucket=input_bucket, output_bucket=output_bucket, model_bucket=model_bucket)
     if isinstance(preview_resp, JSONResponse) and preview_resp.status_code != 200:
