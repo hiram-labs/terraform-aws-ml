@@ -282,6 +282,26 @@ resource "aws_iam_role_policy" "lambda_monitor_sqs_dlq" {
   })
 }
 
+# Monitor S3 write policy for job summaries
+resource "aws_iam_role_policy" "lambda_monitor_s3_write" {
+  count = var.enable_job_monitoring ? 1 : 0
+  name  = "${var.project_name}-lambda-monitor-s3-write"
+  role  = aws_iam_role.lambda_monitor_role[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject"
+        ]
+        Resource = "${var.ml_output_bucket_arn}/job-summaries/*"
+      }
+    ]
+  })
+}
+
 ###############################################################
 # Lambda Function for Job Status Monitoring (Optional)        #
 ###############################################################
@@ -324,7 +344,8 @@ resource "aws_lambda_function" "batch_job_monitor" {
     aws_iam_role_policy_attachment.lambda_monitor_basic_execution,
     aws_iam_role_policy.lambda_monitor_batch_read,
     aws_iam_role_policy.lambda_monitor_sns_publish,
-    aws_iam_role_policy.lambda_monitor_sqs_dlq
+    aws_iam_role_policy.lambda_monitor_sqs_dlq,
+    aws_iam_role_policy.lambda_monitor_s3_write
   ]
 
   tags = var.common_tags
