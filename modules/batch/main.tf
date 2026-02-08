@@ -109,9 +109,11 @@ resource "aws_iam_role_policy" "batch_job_s3_policy" {
           "arn:aws:s3:::${var.ml_input_bucket}/*",
           "arn:aws:s3:::${var.ml_output_bucket}/*",
           "arn:aws:s3:::${var.ml_models_bucket}/*",
+          "arn:aws:s3:::${var.ml_vault_bucket}/*",
           "arn:aws:s3:::${var.ml_input_bucket}",
           "arn:aws:s3:::${var.ml_output_bucket}",
-          "arn:aws:s3:::${var.ml_models_bucket}"
+          "arn:aws:s3:::${var.ml_models_bucket}",
+          "arn:aws:s3:::${var.ml_vault_bucket}"
         ]
       }
     ]
@@ -420,6 +422,10 @@ resource "aws_batch_job_definition" "ml_gpu_job" {
       {
         name  = "ML_MODELS_BUCKET"
         value = var.ml_models_bucket
+      },
+      {
+        name  = "ML_VAULT_BUCKET"
+        value = var.ml_vault_bucket
       }
     ]
 
@@ -637,6 +643,10 @@ resource "aws_batch_job_definition" "ml_cpu_job" {
       {
         name  = "ML_MODELS_BUCKET"
         value = var.ml_models_bucket
+      },
+      {
+        name  = "ML_VAULT_BUCKET"
+        value = var.ml_vault_bucket
       }
     ]
 

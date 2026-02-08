@@ -28,6 +28,11 @@ variable "ml_models_bucket" {
   type        = string
 }
 
+variable "ml_vault_bucket" {
+  description = "S3 bucket name for ML vault storage"
+  type        = string
+}
+
 variable "ml_output_bucket_arn" {
   description = "ARN of the S3 bucket for ML output results"
   type        = string

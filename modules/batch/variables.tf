@@ -43,6 +43,11 @@ variable "ml_models_bucket" {
   type        = string
 }
 
+variable "ml_vault_bucket" {
+  description = "S3 bucket name for ML vault storage"
+  type        = string
+}
+
 variable "ml_gpu_container_image" {
   description = "ECR container image URI for ML GPU jobs"
   type        = string

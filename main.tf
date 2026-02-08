@@ -42,10 +42,13 @@ module "sns" {
 module "s3" {
   source = "./modules/s3"
 
-  project_name         = var.project_name
-  force_destroy        = var.force_destroy_buckets
-  input_retention_days = var.ml_input_retention_days
-  common_tags          = local.common_tags
+  project_name           = var.project_name
+  force_destroy          = var.force_destroy_buckets
+  input_retention_days   = var.ml_input_retention_days
+  output_retention_days  = var.ml_output_retention_days
+  model_retention_days   = var.ml_model_retention_days
+  vault_retention_days   = var.ml_vault_retention_days
+  common_tags            = local.common_tags
 }
 
 ###############################################################
@@ -78,6 +81,7 @@ module "batch" {
   ml_input_bucket        = module.s3.ml_input_bucket_name
   ml_output_bucket       = module.s3.ml_output_bucket_name
   ml_models_bucket       = module.s3.ml_models_bucket_name
+  ml_vault_bucket        = module.s3.ml_vault_bucket_name
   ml_gpu_container_image = var.ml_gpu_container_image
   ml_cpu_container_image = var.ml_cpu_container_image
   gpu_instance_types     = var.ml_gpu_instance_types
@@ -113,6 +117,7 @@ module "lambda" {
   ml_output_bucket           = module.s3.ml_output_bucket_name
   ml_output_bucket_arn       = module.s3.ml_output_bucket_arn
   ml_models_bucket           = module.s3.ml_models_bucket_name
+  ml_vault_bucket            = module.s3.ml_vault_bucket_name
   batch_job_queue_name       = module.batch.batch_job_queue_name
   batch_job_queue_arn        = module.batch.batch_job_queue_arn
   batch_job_role_arn         = module.batch.batch_job_role_arn
