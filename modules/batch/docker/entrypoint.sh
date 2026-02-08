@@ -25,10 +25,10 @@ else
 fi
 
 # Download and execute Python script from S3
-if [ -n "${INPUT_KEY}" ]; then
-    if [[ "${INPUT_KEY}" == *.py ]]; then
-        echo "Downloading Python script: s3://${INPUT_BUCKET}/${INPUT_KEY}"
-        aws s3 cp "s3://${INPUT_BUCKET}/${INPUT_KEY}" /workspace/script.py
+if [ -n "${SCRIPT_KEY}" ]; then
+    if [[ "${SCRIPT_KEY}" == *.py ]]; then
+        echo "Downloading Python script: s3://${INPUT_BUCKET}/${SCRIPT_KEY}"
+        aws s3 cp "s3://${INPUT_BUCKET}/${SCRIPT_KEY}" /workspace/script.py
 
         echo "Executing Python script..."
         # Pass SNS_MESSAGE to script via stdin
@@ -38,11 +38,11 @@ if [ -n "${INPUT_KEY}" ]; then
             python3 /workspace/script.py
         fi
     else
-        echo "Error: Only Python scripts (.py) are supported. Received: ${INPUT_KEY}"
+        echo "Error: Only Python scripts (.py) are supported. Received: ${SCRIPT_KEY}"
         exit 1
     fi
 else
-    echo "No INPUT_KEY specified, running default command..."
+    echo "No SCRIPT_KEY specified, running default command..."
     exec "$@"
 fi
 
